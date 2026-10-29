@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { isSafeImageDataUrl } from '../lib/chatImage';
+import { cleanSoundName, isSafeSoundDataUrl } from '../lib/soundpad';
 
 export interface PresenceMeta {
   id: string;
@@ -25,6 +26,16 @@ export interface ChatMessage {
   image?: string;
 }
 
+/** Efeito do soundpad tocado por alguém da sala. */
+export interface SoundEvent {
+  from: string;
+  /** Nome de quem tocou. */
+  by: string;
+  /** Nome do som. */
+  name: string;
+  data: string;
+}
+
 interface SignalEnvelope {
   from: string;
   to: string;
@@ -35,6 +46,7 @@ export interface SignalingHandlers {
   onPresence(participants: PresenceMeta[]): void;
   onSignal(from: string, signal: Signal): void;
   onChat(message: ChatMessage): void;
+  onSound(sound: SoundEvent): void;
   onError(message: string): void;
 }
 
@@ -77,6 +89,12 @@ export class Signaling {
         const image = isSafeImageDataUrl(msg.image) ? msg.image : undefined;
         if (!msg.text && !image) return;
         this.handlers.onChat({ id: msg.id, from: msg.from, name: msg.name, text: msg.text, ts: msg.ts, image });
+      })
+      .on('broadcast', { event: 'sound' }, ({ payload }) => {
+        const s = payload as SoundEvent;
+        const name = cleanSoundName(s?.name);
+        if (typeof s?.from !== 'string' || !name || !isSafeSoundDataUrl(s.data)) return;
+        this.handlers.onSound({ from: s.from, by: cleanSoundName(s.by) || 'Alguém', name, data: s.data });
       });
   }
 
@@ -119,6 +137,11 @@ export class Signaling {
   sendChat(message: ChatMessage): void {
     if (this.closed) return;
     void this.channel.send({ type: 'broadcast', event: 'chat', payload: message });
+  }
+
+  sendSound(sound: SoundEvent): void {
+    if (this.closed) return;
+    void this.channel.send({ type: 'broadcast', event: 'sound', payload: sound });
   }
 
   async leave(): Promise<void> {

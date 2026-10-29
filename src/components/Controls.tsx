@@ -1,5 +1,7 @@
 import { QUALITY_PRESETS, type QualityId } from '../lib/quality';
+import type { Sound } from '../lib/soundpad';
 import { Icon } from './Icon';
+import { Soundpad } from './Soundpad';
 
 interface Props {
   muted: boolean;
@@ -12,6 +14,7 @@ interface Props {
   onToggleShare(): void;
   onQualityChange(id: QualityId): void;
   onToggleChat(): void;
+  onPlaySound(sound: Sound): void;
   onLeave(): void;
 }
 
@@ -58,6 +61,8 @@ export function Controls(props: Props) {
           ))}
         </select>
       </div>
+
+      <Soundpad onPlay={props.onPlaySound} />
 
       {/* No mobile o ChatPanel tem o próprio botão flutuante; este fica só no desktop. */}
       <button

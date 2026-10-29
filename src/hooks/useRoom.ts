@@ -9,11 +9,14 @@ import {
   type QualityPreset,
 } from '../lib/quality';
 import { PeerManager } from '../webrtc/PeerManager';
-import { Signaling, type ChatMessage, type PresenceMeta } from '../webrtc/signaling';
+import { Signaling, type ChatMessage, type PresenceMeta, type SoundEvent } from '../webrtc/signaling';
 import { isSafeImageDataUrl } from '../lib/chatImage';
+import { loadEffectsVolume, playSoundData, type Sound } from '../lib/soundpad';
 
 export const MAX_PARTICIPANTS = 5;
 const MAX_MESSAGES = 500;
+/** Intervalo mínimo entre sons de uma mesma pessoa. */
+const SOUND_COOLDOWN_MS = 700;
 export const MAX_MESSAGE_LENGTH = 2000;
 
 export type RoomStatus = 'joining' | 'joined' | 'full' | 'error';
@@ -42,6 +45,10 @@ export interface RoomState {
   stopShare(): void;
   setQuality(id: QualityId): void;
   sendChat(text: string, image?: string): void;
+  /** Toca o som para todos da sala (e para você). */
+  playSound(sound: Sound): void;
+  /** Último som tocado na sala, para o aviso "Fulano tocou X". */
+  lastSound: (SoundEvent & { key: number }) | null;
 }
 
 function micErrorMessage(err: unknown): string {
@@ -94,6 +101,8 @@ export function useRoom(roomCode: string, name: string): RoomState {
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream[]>>({});
   const [connStates, setConnStates] = useState<Record<string, RTCPeerConnectionState>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [lastSound, setLastSound] = useState<RoomState['lastSound']>(null);
+  const lastSoundAt = useRef(new Map<string, number>());
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
@@ -221,6 +230,15 @@ export function useRoom(roomCode: string, name: string): RoomState {
           onChat: (msg) => {
             if (!disposed) pushMessage(msg);
           },
+          onSound: (sound) => {
+            if (disposed) return;
+            // Antiflood: ignora o mesmo remetente mais de uma vez em SOUND_COOLDOWN_MS.
+            const now = Date.now();
+            if (now - (lastSoundAt.current.get(sound.from) ?? 0) < SOUND_COOLDOWN_MS) return;
+            lastSoundAt.current.set(sound.from, now);
+            playSoundData(sound.data, loadEffectsVolume());
+            setLastSound({ ...sound, key: now });
+          },
           onError: (message) => {
             if (!disposed) setError(message);
           },
@@ -324,6 +342,19 @@ export function useRoom(roomCode: string, name: string): RoomState {
     peersRef.current?.updateEncoding(video, encodingFor(q));
   }, []);
 
+  const playSound = useCallback(
+    (sound: Sound) => {
+      const now = Date.now();
+      if (now - (lastSoundAt.current.get(selfId) ?? 0) < SOUND_COOLDOWN_MS) return;
+      lastSoundAt.current.set(selfId, now);
+      const event: SoundEvent = { from: selfId, by: name, name: sound.name, data: sound.data };
+      signalingRef.current?.sendSound(event);
+      playSoundData(sound.data, loadEffectsVolume());
+      setLastSound({ ...event, key: now });
+    },
+    [name, selfId],
+  );
+
   const sendChat = useCallback(
     (raw: string, image?: string) => {
       const text = raw.trim().slice(0, MAX_MESSAGE_LENGTH);
@@ -385,5 +416,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
     stopShare: stopShareInternal,
     setQuality,
     sendChat,
+    playSound,
+    lastSound,
   };
 }

@@ -2267,6 +2267,488 @@ a {
 }
 
 /* ==========================================================================
+   Soundpad
+   ========================================================================== */
+
+/* Sem a marca de 100% no meio quando o máximo do slider não é 200%. */
+.volume--plain .volume__slider {
+  background: linear-gradient(to right, var(--accent) var(--fill, 50%), var(--surface-3) var(--fill, 50%));
+}
+
+.soundpad {
+  position: relative;
+}
+
+.soundpad__panel {
+  --panel-w: 340px;
+  position: absolute;
+  bottom: calc(100% + var(--space-3));
+  left: 50%;
+  z-index: 60;
+  width: var(--panel-w);
+  max-height: min(70vh, 560px);
+  margin-left: calc(var(--panel-w) / -2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+  transform-origin: 50% 100%;
+  animation: volume-pop-in var(--dur-slow) var(--ease-out) both;
+}
+
+.soundpad__panel--closing {
+  animation: volume-pop-out 160ms var(--ease) both;
+  pointer-events: none;
+}
+
+.soundpad__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.soundpad__head h3 {
+  margin: 0 auto 0 0;
+  font-size: var(--fs-md, 16px);
+  font-weight: 600;
+}
+
+.soundpad__count {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.soundpad__volume {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.soundpad__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.soundpad__item {
+  position: relative;
+  animation: scale-in var(--dur) var(--ease-out) both;
+}
+
+.soundpad__sound,
+.soundpad__add {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.soundpad__sound .icon {
+  flex: none;
+  color: var(--accent);
+}
+
+.soundpad__sound:hover {
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft);
+}
+
+.soundpad__sound:active {
+  transform: scale(0.96);
+}
+
+.soundpad__name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Onda que se espalha a cada toque. */
+.soundpad__ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 20% 50%, var(--accent-glow), transparent 70%);
+  pointer-events: none;
+  animation: soundpad-ripple 600ms var(--ease-out) both;
+}
+
+@keyframes soundpad-ripple {
+  from {
+    opacity: 1;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+.soundpad__remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.soundpad__item:hover .soundpad__remove,
+.soundpad__remove:focus-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.soundpad__remove:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.soundpad__add {
+  justify-content: center;
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.soundpad__add:hover:not(:disabled) {
+  border-color: var(--accent-soft-border);
+  color: var(--accent);
+}
+
+.soundpad__add:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.soundpad__empty,
+.soundpad__error {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.soundpad__error {
+  color: var(--danger);
+}
+
+/* ---------- Editor de som ---------- */
+
+.btn--ghost {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border-color: var(--border);
+  background: transparent;
+  font-size: var(--fs-sm);
+}
+
+.sound-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.sound-editor__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-5, 24px) var(--space-3);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.sound-editor__pick:hover:not(:disabled) {
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft);
+}
+
+.sound-editor__pick .icon {
+  color: var(--accent);
+}
+
+.sound-editor__pick small {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+
+.sound-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.sound-editor__field input[type='text'] {
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.sound-editor__field input[type='text']:focus-visible {
+  border-color: var(--accent);
+  box-shadow: none;
+  outline: none;
+}
+
+.sound-editor__field--row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.sound-editor__field--row span {
+  width: 56px;
+}
+
+.sound-editor__field input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.sound-editor__wave-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  margin-bottom: calc(var(--space-2) * -1);
+}
+
+.sound-editor__range {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.sound-editor__range em {
+  color: var(--accent);
+  font-style: normal;
+}
+
+.sound-editor__wave {
+  --wave-on: var(--accent);
+  --wave-off: var(--surface-4, #3a3a55);
+  position: relative;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.sound-editor__wave canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.sound-editor__window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  pointer-events: none;
+  transition:
+    left 80ms linear,
+    width 80ms linear;
+}
+
+.sound-editor__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  box-shadow: 0 0 8px var(--accent-glow);
+  pointer-events: none;
+}
+
+.sound-editor__tools,
+.sound-editor__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sound-editor__actions {
+  justify-content: flex-end;
+  padding-top: var(--space-1);
+}
+
+.sound-editor__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-xs);
+}
+
+.sound-editor__progress {
+  position: relative;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.sound-editor__progress span {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 100ms linear;
+}
+
+.sound-editor__progress small {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.sound-editor__progress:has(small) {
+  overflow: visible;
+  margin-bottom: var(--space-4);
+}
+
+/* ---------- Aviso "Fulano tocou X" ---------- */
+
+.sound-toast {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: calc(100vw - 32px);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--accent-soft-border);
+  border-radius: var(--radius-full);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+  animation: sound-toast 2600ms var(--ease-out) both;
+}
+
+.sound-toast .icon {
+  color: var(--accent);
+}
+
+.sound-toast span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@keyframes sound-toast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.96);
+  }
+  10%,
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
+}
+
+@media (max-width: 768px) {
+  /* No celular o painel ocupa a largura da barra de controles. */
+  .controls {
+    position: relative;
+  }
+
+  .soundpad {
+    position: static;
+  }
+
+  .soundpad__panel {
+    left: 0;
+    right: 0;
+    width: auto;
+    margin-left: 0;
+  }
+
+  .soundpad__remove {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .soundpad__remove {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ==========================================================================
    Movimento reduzido: sem deslocamentos, loops ou transições.
    ========================================================================== */
 

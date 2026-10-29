@@ -154,6 +154,15 @@ export function Room({ code, name, onLeave }: Props) {
               )}
             </div>
           )}
+          {room.lastSound && (
+            <div className="sound-toast" key={room.lastSound.key} role="status">
+              <Icon name="soundpad" size={16} />
+              <span>
+                <strong>{room.lastSound.from === room.selfId ? 'Você' : room.lastSound.by}</strong> tocou “
+                {room.lastSound.name}”
+              </span>
+            </div>
+          )}
           {room.sharing && !room.shareHasAudio && (
             <p className="share-hint">
               Sua tela está sem áudio. No Chrome/Edge, marque “Compartilhar áudio do sistema” (tela inteira) ou
@@ -175,6 +184,7 @@ export function Room({ code, name, onLeave }: Props) {
               setChatOpen((o) => !o);
               setUnread(0);
             }}
+            onPlaySound={room.playSound}
             onLeave={onLeave}
           />
         </main>

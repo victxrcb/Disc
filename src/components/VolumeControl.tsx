@@ -28,10 +28,11 @@ interface Props {
   label: string;
   /** Só o botão de silenciar, sem slider. */
   compact?: boolean;
+  max?: number;
   className?: string;
 }
 
-export function VolumeControl({ value, onChange, label, compact = false, className = '' }: Props) {
+export function VolumeControl({ value, onChange, label, compact = false, max = MAX_VOLUME, className = '' }: Props) {
   // Volume a restaurar ao reativar o áudio silenciado.
   const lastAudible = useRef(value || 1);
   if (value > 0) lastAudible.current = value;
@@ -39,7 +40,7 @@ export function VolumeControl({ value, onChange, label, compact = false, classNa
 
   return (
     <div
-      className={`volume${value !== 1 ? ' volume--changed' : ''}${compact ? ' volume--compact' : ''} ${className}`}
+      className={`volume${value !== 1 ? ' volume--changed' : ''}${compact ? ' volume--compact' : ''}${max === MAX_VOLUME ? '' : ' volume--plain'} ${className}`}
       role="group"
       aria-label={label}
       onClick={(e) => e.stopPropagation()}
@@ -60,7 +61,7 @@ export function VolumeControl({ value, onChange, label, compact = false, classNa
             type="range"
             className="volume__slider"
             min={0}
-            max={MAX_VOLUME}
+            max={max}
             step={0.05}
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
@@ -68,7 +69,7 @@ export function VolumeControl({ value, onChange, label, compact = false, classNa
             aria-label={label}
             aria-valuetext={`${percent}%`}
             title="Duplo clique volta para 100%"
-            style={{ ['--fill' as string]: `${(value / MAX_VOLUME) * 100}%` }}
+            style={{ ['--fill' as string]: `${(value / max) * 100}%` }}
           />
           <button
             type="button"
