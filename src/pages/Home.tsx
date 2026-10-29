@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode, CODE_LENGTH } from '../lib/roomCode';
 import { supabaseConfigured } from '../lib/supabase';
 
@@ -8,6 +8,7 @@ interface Props {
   onJoin(code: string, name: string): void;
 }
 
+const HomeScene = lazy(() => import('../components/HomeScene').catch(() => ({ default: () => null })));
 const MAX_NAME = 32;
 
 export function Home({ initialCode, initialName, onJoin }: Props) {
@@ -32,11 +33,11 @@ export function Home({ initialCode, initialName, onJoin }: Props) {
 
   return (
     <main className="home">
+      <Suspense fallback={null}><HomeScene /></Suspense>
+      <p className="home__wordmark">
+        Discord<br />2.0
+      </p>
       <div className="home__card">
-        <div className="brand">
-          <img src="/favicon.svg" alt="" width={36} height={36} />
-          <span>Resenha</span>
-        </div>
         <h1 className="home__title">Chama a galera, sem cadastro.</h1>
         <p className="home__lead">
           Crie uma chamada, mande o código para os amigos e pronto: voz, tela compartilhada com áudio e chat, direto no

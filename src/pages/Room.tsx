@@ -85,7 +85,7 @@ export function Room({ code, name, onLeave }: Props) {
       <header className="room__header">
         <div className="brand brand--small">
           <img src="/favicon.svg" alt="" width={26} height={26} />
-          <span>Resenha</span>
+          <span>Discord 2.0</span>
         </div>
         <div className="room__code">
           <button className="code-chip" onClick={() => copyCode(code)} title="Copiar código">
