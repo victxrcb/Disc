@@ -89,7 +89,8 @@ export function saveEffectsVolume(volume: number): void {
 
 // ---------- Reprodução ----------
 
-const MAX_CONCURRENT = 4;
+/** Sons tocando ao mesmo tempo; acima disso o mais antigo é interrompido. */
+const MAX_CONCURRENT = 12;
 const playing = new Set<HTMLAudioElement>();
 
 /**

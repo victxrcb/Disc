@@ -2670,12 +2670,25 @@ a {
 
 /* ---------- Aviso "Fulano tocou X" ---------- */
 
-.sound-toast {
+/* Pilha de avisos no topo; o mais novo fica embaixo. */
+.sound-toasts {
   position: fixed;
   top: 72px;
   left: 50%;
   z-index: 65;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.sound-toast {
+  display: flex;
+  pointer-events: auto;
   align-items: center;
   gap: var(--space-2);
   max-width: calc(100vw - 32px);
@@ -2689,7 +2702,6 @@ a {
   box-shadow: var(--shadow-md);
   color: var(--text);
   font-size: var(--fs-sm);
-  transform: translateX(-50%);
   animation: sound-toast-in var(--dur-slow) var(--ease-out) both;
 }
 
@@ -2758,14 +2770,14 @@ a {
 @keyframes sound-toast-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -10px) scale(0.96);
+    transform: translateY(-10px) scale(0.96);
   }
 }
 
 @keyframes sound-toast-out {
   to {
     opacity: 0;
-    transform: translate(-50%, -6px) scale(0.98);
+    transform: translateY(-6px) scale(0.98);
   }
 }
 

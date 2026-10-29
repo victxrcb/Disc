@@ -15,8 +15,10 @@ import { loadEffectsVolume, playSoundData, type Sound } from '../lib/soundpad';
 
 export const MAX_PARTICIPANTS = 5;
 const MAX_MESSAGES = 500;
-/** Intervalo mínimo entre sons de uma mesma pessoa. */
-const SOUND_COOLDOWN_MS = 700;
+/** Antiflood do soundpad: no máximo SOUND_BURST sons por pessoa a cada SOUND_WINDOW_MS. */
+const SOUND_BURST = 8;
+const SOUND_WINDOW_MS = 3000;
+const MAX_SOUND_TOASTS = 3;
 export const MAX_MESSAGE_LENGTH = 2000;
 
 export type RoomStatus = 'joining' | 'joined' | 'full' | 'error';
@@ -27,6 +29,8 @@ export interface Participant extends PresenceMeta {
   micStream: MediaStream | null;
   screenStream: MediaStream | null;
 }
+
+export type SoundToastItem = SoundEvent & { key: number };
 
 export interface RoomState {
   status: RoomStatus;
@@ -47,8 +51,9 @@ export interface RoomState {
   sendChat(text: string, image?: string): void;
   /** Toca o som para todos da sala (e para você). */
   playSound(sound: Sound): void;
-  /** Último som tocado na sala, para o aviso "Fulano tocou X". */
-  lastSound: (SoundEvent & { key: number }) | null;
+  /** Sons tocados recentemente, para os avisos "Fulano tocou X" (mais novo por último). */
+  soundToasts: SoundToastItem[];
+  dismissSoundToast(key: number): void;
 }
 
 function micErrorMessage(err: unknown): string {
@@ -101,8 +106,31 @@ export function useRoom(roomCode: string, name: string): RoomState {
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream[]>>({});
   const [connStates, setConnStates] = useState<Record<string, RTCPeerConnectionState>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [lastSound, setLastSound] = useState<RoomState['lastSound']>(null);
-  const lastSoundAt = useRef(new Map<string, number>());
+  const [soundToasts, setSoundToasts] = useState<SoundToastItem[]>([]);
+  const soundTimes = useRef(new Map<string, number[]>());
+  const toastSeq = useRef(0);
+
+  /** Registra um som de `from` se ainda couber na janela do antiflood. */
+  const allowSound = useCallback((from: string) => {
+    const now = Date.now();
+    const recent = (soundTimes.current.get(from) ?? []).filter((t) => now - t < SOUND_WINDOW_MS);
+    const allowed = recent.length < SOUND_BURST;
+    if (allowed) recent.push(now);
+    soundTimes.current.set(from, recent);
+    return allowed;
+  }, []);
+
+  // O mesmo som da mesma pessoa repetido atualiza o aviso existente em vez de empilhar outro.
+  const showSoundToast = useCallback((sound: SoundEvent) => {
+    setSoundToasts((list) => {
+      const rest = list.filter((t) => !(t.from === sound.from && t.name === sound.name));
+      return [...rest, { ...sound, key: ++toastSeq.current }].slice(-MAX_SOUND_TOASTS);
+    });
+  }, []);
+
+  const dismissSoundToast = useCallback((key: number) => {
+    setSoundToasts((list) => list.filter((t) => t.key !== key));
+  }, []);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
@@ -232,12 +260,9 @@ export function useRoom(roomCode: string, name: string): RoomState {
           },
           onSound: (sound) => {
             if (disposed) return;
-            // Antiflood: ignora o mesmo remetente mais de uma vez em SOUND_COOLDOWN_MS.
-            const now = Date.now();
-            if (now - (lastSoundAt.current.get(sound.from) ?? 0) < SOUND_COOLDOWN_MS) return;
-            lastSoundAt.current.set(sound.from, now);
+            if (!allowSound(sound.from)) return;
             playSoundData(sound.data, loadEffectsVolume());
-            setLastSound({ ...sound, key: now });
+            showSoundToast(sound);
           },
           onError: (message) => {
             if (!disposed) setError(message);
@@ -344,15 +369,13 @@ export function useRoom(roomCode: string, name: string): RoomState {
 
   const playSound = useCallback(
     (sound: Sound) => {
-      const now = Date.now();
-      if (now - (lastSoundAt.current.get(selfId) ?? 0) < SOUND_COOLDOWN_MS) return;
-      lastSoundAt.current.set(selfId, now);
+      if (!allowSound(selfId)) return;
       const event: SoundEvent = { from: selfId, by: name, name: sound.name, data: sound.data, duration: sound.duration };
       signalingRef.current?.sendSound(event);
       playSoundData(sound.data, loadEffectsVolume());
-      setLastSound({ ...event, key: now });
+      showSoundToast(event);
     },
-    [name, selfId],
+    [name, selfId, allowSound, showSoundToast],
   );
 
   const sendChat = useCallback(
@@ -417,6 +440,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
     setQuality,
     sendChat,
     playSound,
-    lastSound,
+    soundToasts,
+    dismissSoundToast,
   };
 }

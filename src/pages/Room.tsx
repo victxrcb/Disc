@@ -155,12 +155,17 @@ export function Room({ code, name, onLeave }: Props) {
               )}
             </div>
           )}
-          {room.lastSound && (
-            <SoundToast
-              key={room.lastSound.key}
-              sound={room.lastSound}
-              fromSelf={room.lastSound.from === room.selfId}
-            />
+          {room.soundToasts.length > 0 && (
+            <div className="sound-toasts">
+              {room.soundToasts.map((t) => (
+                <SoundToast
+                  key={t.key}
+                  sound={t}
+                  fromSelf={t.from === room.selfId}
+                  onDone={() => room.dismissSoundToast(t.key)}
+                />
+              ))}
+            </div>
           )}
           {room.sharing && !room.shareHasAudio && (
             <p className="share-hint">

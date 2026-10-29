@@ -11,15 +11,16 @@ type SaveState = 'idle' | 'added' | 'duplicate' | 'error';
 interface Props {
   sound: SoundEvent;
   fromSelf: boolean;
+  /** Chamado quando o aviso termina de sair. */
+  onDone(): void;
 }
 
 /**
  * Aviso "Fulano tocou X". Some sozinho (pausa com o mouse em cima);
  * o "+" guarda o som no soundpad de quem ouviu.
  */
-export function SoundToast({ sound, fromSelf }: Props) {
+export function SoundToast({ sound, fromSelf, onDone }: Props) {
   const [leaving, setLeaving] = useState(false);
-  const [gone, setGone] = useState(false);
   const [saved, setSaved] = useState<SaveState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -36,13 +37,15 @@ export function SoundToast({ sound, fromSelf }: Props) {
     };
   }, [hovered, leaving]);
 
+  // Em ref: o pai recria onDone a cada render, o que reiniciaria o timer de saída.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
   useEffect(() => {
     if (!leaving) return;
-    const timer = window.setTimeout(() => setGone(true), EXIT_MS);
+    const timer = window.setTimeout(() => onDoneRef.current(), EXIT_MS);
     return () => window.clearTimeout(timer);
   }, [leaving]);
-
-  if (gone) return null;
 
   const save = () => {
     try {
