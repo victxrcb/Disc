@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "build:desktop": "tsc -b && vite build --mode desktop",
     "desktop": "npm run build:desktop && electron .",
-    "desktop:build": "npm run build:desktop && electron-builder --win nsis",
+    "desktop:build": "npm run build:desktop && electron-builder --win nsis --publish never",
     "desktop:pack": "npm run build:desktop && electron-builder --win --dir",
     "typecheck": "tsc -b",
     "preview": "vite preview"
