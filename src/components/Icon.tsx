@@ -8,6 +8,7 @@ const PATHS = {
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   check: 'M5 12l5 5L20 7',
   volume: 'M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11',
+  volumeOff: 'M4 9h4l5-4v14l-5-4H4zM16 9.5l5 5M21 9.5l-5 5',
   expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
   close: 'M6 6l12 12M18 6L6 18',
   send: 'M4 12l16-8-6 16-2-6z',

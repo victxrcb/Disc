@@ -1151,17 +1151,131 @@ a {
     transform var(--dur) var(--ease);
 }
 
+/* Volume alterado (silenciado ou amplificado) fica sempre visível como lembrete. */
 .tile:hover .tile__volume,
-.tile__volume:focus-within {
+.tile__volume:focus-within,
+.tile__volume.volume--changed {
   opacity: 1;
   transform: none;
 }
 
-.tile__volume input,
-.screen__volume input {
-  width: 84px;
-  accent-color: var(--accent);
+.tile__volume.volume--compact {
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: 0;
+}
+
+/* ---------- Controle de volume (tile e transmissão) ---------- */
+
+.volume {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.volume__toggle,
+.volume__value {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
+  transition:
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.volume__toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.volume__toggle:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.volume__toggle:active {
+  transform: scale(0.9);
+}
+
+.volume__toggle[aria-pressed='true'] {
+  color: var(--danger);
+}
+
+.volume__value {
+  min-width: 4.5ch;
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.volume__value:not(:disabled):hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.volume__value:disabled {
+  cursor: default;
+}
+
+/* Acima de 100% o número destaca que o som está amplificado. */
+.volume--changed .volume__value {
+  color: var(--accent);
+}
+
+.volume__slider {
+  width: 96px;
+  height: 4px;
+  margin: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  appearance: none;
+  -webkit-appearance: none;
+  /* Preenchimento até o valor + marca discreta em 100% (meio da faixa). */
+  background:
+    linear-gradient(var(--text-faint), var(--text-faint)) 50% 50% / 2px 10px no-repeat,
+    linear-gradient(to right, var(--accent) var(--fill, 50%), var(--surface-3) var(--fill, 50%));
+  cursor: pointer;
+}
+
+.volume__slider::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: transform var(--dur) var(--ease);
+}
+
+.volume__slider::-moz-range-track {
+  background: transparent;
+}
+
+.volume__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.volume__slider:hover::-webkit-slider-thumb,
+.volume__slider:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.volume__slider:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .tile--compact {
@@ -1361,10 +1475,29 @@ a {
   }
 
   .screen--focused:hover .screen__bar,
-  .screen--focused:focus-within .screen__bar {
+  .screen--focused:focus-within .screen__bar,
+  .screen--panel .screen__bar {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Tela em destaque de outra pessoa: o clique abre/fecha o controle de volume. */
+.screen--focused[role='group'] {
+  cursor: pointer;
+}
+
+.screen--focused:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.screen--panel .screen__bar {
+  border-color: var(--accent-soft-border);
+}
+
+.screen--panel .screen__volume {
+  animation: fade-in var(--dur) var(--ease) both;
 }
 
 .screen__who {
@@ -1384,10 +1517,16 @@ a {
 }
 
 .screen__volume {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   color: var(--text-muted);
+}
+
+.screen__no-audio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
 }
 
 .screen:fullscreen {
@@ -1783,6 +1922,15 @@ a {
   .tile__volume,
   .screen__volume {
     min-height: var(--tap);
+  }
+
+  .volume__toggle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .volume__slider {
+    height: 6px;
   }
 }
 

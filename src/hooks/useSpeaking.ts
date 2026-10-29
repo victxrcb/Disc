@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-
-let sharedContext: AudioContext | null = null;
-
-function getAudioContext(): AudioContext | null {
-  if (typeof AudioContext === 'undefined') return null;
-  sharedContext ??= new AudioContext();
-  if (sharedContext.state === 'suspended') void sharedContext.resume();
-  return sharedContext;
-}
+import { getAudioContext } from '../lib/audio';
 
 /** true enquanto o volume do stream passar de um limiar (indicador de "falando"). */
 export function useSpeaking(stream: MediaStream | null, enabled = true): boolean {

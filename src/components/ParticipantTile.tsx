@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import type { Participant } from '../hooks/useRoom';
 import { useSpeaking } from '../hooks/useSpeaking';
 import { Icon } from './Icon';
 import { MediaElement } from './MediaElement';
+import { usePeerVolume, VolumeControl } from './VolumeControl';
 
 const CONNECTION_LABEL: Partial<Record<RTCPeerConnectionState, string>> = {
   new: 'conectando…',
@@ -20,7 +20,7 @@ function hue(id: string): number {
 export function ParticipantTile({ participant, compact = false }: { participant: Participant; compact?: boolean }) {
   const { name, isSelf, muted, micStream, connection, id } = participant;
   const speaking = useSpeaking(micStream, !muted);
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = usePeerVolume(name);
   const status = !isSelf && connection ? CONNECTION_LABEL[connection] : undefined;
 
   return (
@@ -38,19 +38,14 @@ export function ParticipantTile({ participant, compact = false }: { participant:
         )}
       </div>
       {status && <div className="tile__status">{status}</div>}
-      {!isSelf && !compact && (
-        <label className="tile__volume" title="Volume deste participante">
-          <Icon name="volume" size={16} />
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
-            aria-label={`Volume de ${name}`}
-          />
-        </label>
+      {!isSelf && (
+        <VolumeControl
+          value={volume}
+          onChange={setVolume}
+          label={`Volume de ${name}`}
+          compact={compact}
+          className="tile__volume"
+        />
       )}
     </div>
   );
