@@ -1,4 +1,6 @@
 const PATHS = {
+  camera: 'M3 6h12v12H3zM15 10l6-4v12l-6-4',
+  cameraOff: 'M3 3l18 18M3 6h12v6M15 10l6-4v12M3 6v12h12v-3',
   mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3',
   micOff: 'M3 3l18 18M9 9v3a3 3 0 0 0 5.1 2.1M15 9.3V6a3 3 0 0 0-5.7-1.3M5 11a7 7 0 0 0 11.5 5.4M19 11a7 7 0 0 1-.6 2.8M12 18v3',
   screen: 'M3 5h18v11H3zM8 20h8M12 16v4',

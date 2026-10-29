@@ -89,7 +89,7 @@ export function ParticipantTile({ participant, compact = false }: { participant:
 
   return (
     <div
-      className={`tile${speaking ? ' tile--speaking' : ''}${compact ? ' tile--compact' : ''}${menu ? ' tile--menu' : ''}`}
+      className={`tile${speaking ? ' tile--speaking' : ''}${compact ? ' tile--compact' : ''}${participant.cameraStream ? ' tile--camera' : ''}${menu ? ' tile--menu' : ''}`}
       onContextMenu={handleContextMenu}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -102,9 +102,14 @@ export function ParticipantTile({ participant, compact = false }: { participant:
       title={isSelf ? undefined : 'Botão direito para ajustar o volume'}
     >
       {!isSelf && <MediaElement kind="audio" stream={micStream} volume={volume} />}
-      <div className="tile__avatar" style={{ ['--h' as string]: hue(id) }}>
-        {name.trim().charAt(0).toUpperCase() || '?'}
-      </div>
+      {participant.cameraStream ? (
+        <MediaElement kind="video" stream={participant.cameraStream} muted
+          className={`tile__camera${isSelf ? ' tile__camera--self' : ''}`} />
+      ) : (
+        <div className="tile__avatar" style={{ ['--h' as string]: hue(id) }}>
+          {name.trim().charAt(0).toUpperCase() || '?'}
+        </div>
+      )}
       <div className="tile__name">
         <span className="tile__label">{name}{isSelf && ' (você)'}</span>
         {muted && (

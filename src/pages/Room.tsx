@@ -78,7 +78,10 @@ export function Room({ code, name, onLeave }: Props) {
 
   const sharers = room.participants.filter((p) => p.screenStream);
   const focused = sharers.find((p) => p.id === focusId) ?? sharers.find((p) => !p.isSelf) ?? sharers[0] ?? null;
-  const link = `${window.location.origin}/${code}`;
+  const publicAppUrl =
+    (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.replace(/\/+$/, '') ||
+    'https://disc-call.vercel.app';
+  const link = `${publicAppUrl}/${code}`;
 
   return (
     <div className="room">
@@ -103,9 +106,10 @@ export function Room({ code, name, onLeave }: Props) {
         </div>
       </header>
 
-      {(room.micError || room.shareError || room.error) && (
+      {(room.micError || room.shareError || room.cameraError || room.error) && (
         <div className="notices">
           {room.micError && <p className="notice notice--warn">{room.micError}</p>}
+          {room.cameraError && <p className="notice notice--warn" role="status">{room.cameraError}</p>}
           {room.shareError && <p className="notice notice--error">{room.shareError}</p>}
           {room.error && <p className="notice notice--error">Conexão com o servidor instável: {room.error}</p>}
         </div>
@@ -184,6 +188,10 @@ export function Room({ code, name, onLeave }: Props) {
             micGateSupported={room.micGateSupported}
             getMicMeter={room.micMeter}
             onMicChange={room.changeMic}
+            cameraOn={room.cameraOn}
+            cameraBusy={room.cameraBusy}
+            cameraAvailable={room.status === 'joined'}
+            onToggleCamera={() => void room.toggleCamera()}
             sharing={room.sharing}
             quality={room.quality}
             chatOpen={chatOpen}

@@ -37,6 +37,7 @@ export interface Participant extends PresenceMeta {
   connection: RTCPeerConnectionState | null;
   micStream: MediaStream | null;
   screenStream: MediaStream | null;
+  cameraStream: MediaStream | null;
 }
 
 export type SoundToastItem = SoundEvent & { key: number };
@@ -46,6 +47,10 @@ export interface RoomState {
   error: string | null;
   micError: string | null;
   shareError: string | null;
+  cameraError: string | null;
+  cameraOn: boolean;
+  cameraBusy: boolean;
+  toggleCamera(): Promise<void>;
   selfId: string;
   participants: Participant[];
   messages: ChatMessage[];
@@ -166,6 +171,12 @@ export function useRoom(roomCode: string, name: string): RoomState {
     setSoundToasts((list) => list.filter((t) => t.key !== key));
   }, []);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraBusy, setCameraBusy] = useState(false);
+  const cameraRef = useRef<MediaStream | null>(null);
+  const cameraPending = useRef(false);
+  const cameraSeq = useRef(0);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [micSettings, setMicSettings] = useState<MicSettings>(loadMicSettings);
@@ -192,6 +203,83 @@ export function useRoom(roomCode: string, name: string): RoomState {
     });
   }, []);
 
+  const stopCamera = useCallback(() => {
+    const stream = cameraRef.current;
+    cameraRef.current = null;
+    for (const track of stream?.getTracks() ?? []) {
+      track.onended = null;
+      peersRef.current?.removeLocalTrack(track);
+      track.stop();
+    }
+    setCameraStream(null);
+    signalingRef.current?.updateMeta({ cameraStreamId: null });
+  }, []);
+
+  const toggleCamera = useCallback(async () => {
+    if (cameraRef.current) {
+      stopCamera();
+      return;
+    }
+    const peers = peersRef.current;
+    if (cameraPending.current || !peers) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Câmera indisponível. Abra a chamada por HTTPS em um navegador compatível.');
+      return;
+    }
+    cameraPending.current = true;
+    setCameraBusy(true);
+    setCameraError(null);
+    const request = ++cameraSeq.current;
+    let stream: MediaStream | null = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 }, height: { ideal: 720 },
+          frameRate: { ideal: 24, max: 30 },
+        },
+      });
+      // Uma permissão concedida depois de sair nunca deve deixar a câmera ligada.
+      if (request !== cameraSeq.current || peersRef.current !== peers) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const track = stream.getVideoTracks()[0];
+      if (!track || track.readyState === 'ended') throw new Error('Câmera sem vídeo');
+      track.contentHint = 'motion';
+      cameraRef.current = stream;
+      track.onended = () => {
+        if (cameraRef.current !== stream) return;
+        stopCamera();
+        setCameraError('A câmera foi desconectada ou interrompida. Tente ligá-la novamente.');
+      };
+      peers.addLocalTrack({ track, stream, maxBitrate: 1_500_000, maxFramerate: 30 });
+      setCameraStream(stream);
+      signalingRef.current?.updateMeta({ cameraStreamId: stream.id });
+    } catch (err) {
+      stream?.getTracks().forEach((track) => {
+        track.onended = null;
+        peers.removeLocalTrack(track);
+        track.stop();
+      });
+      if (request !== cameraSeq.current || peersRef.current !== peers) return;
+      cameraRef.current = null;
+      setCameraStream(null);
+      const reason = err instanceof DOMException ? err.name : '';
+      setCameraError(reason === 'NotAllowedError'
+        ? 'Câmera bloqueada. Permita o acesso à câmera nas configurações do navegador e tente novamente.'
+        : reason === 'NotFoundError'
+          ? 'Nenhuma câmera encontrada neste dispositivo.'
+          : 'Não foi possível ligar a câmera. Verifique se ela está em uso em outro aplicativo.');
+    } finally {
+      if (request === cameraSeq.current) {
+        cameraPending.current = false;
+        setCameraBusy(false);
+      }
+    }
+  }, [stopCamera]);
+
   const stopShareInternal = useCallback(() => {
     const stream = screenRef.current;
     if (!stream) return;
@@ -214,6 +302,13 @@ export function useRoom(roomCode: string, name: string): RoomState {
     let peers: PeerManager | null = null;
 
     const cleanup = () => {
+      cameraSeq.current++;
+      cameraPending.current = false;
+      for (const track of cameraRef.current?.getTracks() ?? []) {
+        track.onended = null;
+        track.stop();
+      }
+      cameraRef.current = null;
       if (screenRef.current) {
         for (const t of screenRef.current.getTracks()) {
           t.onended = null;
@@ -541,20 +636,23 @@ export function useRoom(roomCode: string, name: string): RoomState {
             connection: null,
             micStream,
             screenStream,
+            cameraStream,
           };
         }
         const streams = remoteStreams[p.id] ?? [];
         const screen = p.screenStreamId ? streams.find((s) => s.id === p.screenStreamId) ?? null : null;
-        const mic = streams.find((s) => s.id !== p.screenStreamId && s.getAudioTracks().length > 0) ?? null;
+        const camera = p.cameraStreamId ? streams.find((stream) => stream.id === p.cameraStreamId) ?? null : null;
+        const mic = streams.find((s) => s.id !== p.screenStreamId && s.id !== p.cameraStreamId && s.getAudioTracks().length > 0) ?? null;
         return {
           ...p,
           isSelf: false,
           connection: connStates[p.id] ?? null,
+          cameraStream: camera && camera.getVideoTracks().some((track) => track.readyState === 'live') ? camera : null,
           micStream: mic,
           screenStream: screen && screen.getVideoTracks().length > 0 ? screen : null,
         };
       });
-  }, [presence, selfId, name, muted, micStream, screenStream, remoteStreams, connStates]);
+  }, [presence, selfId, name, muted, micStream, screenStream, cameraStream, remoteStreams, connStates]);
 
   return {
     status,
@@ -565,6 +663,10 @@ export function useRoom(roomCode: string, name: string): RoomState {
     participants,
     messages,
     muted,
+    cameraOn: cameraStream !== null,
+    cameraBusy,
+    cameraError,
+    toggleCamera,
     sharing: screenStream !== null,
     shareHasAudio: (screenStream?.getAudioTracks().length ?? 0) > 0,
     quality,

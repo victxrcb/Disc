@@ -1,6 +1,9 @@
 node_modules
 dist
+release
 *.tsbuildinfo
 .vercel
+.codex
+tmp
 .env*
 !.env.example

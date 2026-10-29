@@ -11,6 +11,8 @@ export interface PresenceMeta {
   muted: boolean;
   /** id do MediaStream da tela compartilhada (permite ao outro lado distinguir do microfone). */
   screenStreamId: string | null;
+  /** Stream de câmera, separado da tela e do microfone. */
+  cameraStreamId?: string | null;
 }
 
 export type Signal =
@@ -79,7 +81,7 @@ export class Signaling {
         const participants = Object.values(state)
           .map((metas) => metas[metas.length - 1])
           .filter((m): m is PresenceMeta & { presence_ref: string } => Boolean(m?.id))
-          .map(({ id, name, joinedAt, muted, screenStreamId }) => ({ id, name, joinedAt, muted, screenStreamId }));
+          .map(({ id, name, joinedAt, muted, screenStreamId, cameraStreamId }) => ({ id, name, joinedAt, muted, screenStreamId, cameraStreamId }));
         this.handlers.onPresence(participants);
       })
       .on('broadcast', { event: 'signal' }, ({ payload }) => {

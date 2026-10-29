@@ -879,6 +879,126 @@ a {
     transform: none;
   }
 }
+
+/* Landing page publica do instalador. */
+.download-card {
+  width: min(500px, 100%);
+  gap: 18px;
+  padding: clamp(24px, 4vw, 38px);
+}
+
+.download-card .home__title {
+  max-width: 13ch;
+  margin-top: 0;
+}
+
+.download-card__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.download-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3ee59a;
+  box-shadow: 0 0 16px rgb(62 229 154 / 0.75);
+}
+
+.download-card__button {
+  min-height: 52px;
+  gap: 10px;
+  margin-top: 4px;
+  text-decoration: none;
+}
+
+.download-card__meta {
+  margin: -8px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+}
+
+.download-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 17px;
+  border-top: 1px solid var(--border);
+}
+
+.download-features span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.download-features .icon {
+  color: var(--text);
+}
+
+.download-card__releases {
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+  text-underline-offset: 3px;
+}
+
+.download-card__releases:hover {
+  color: var(--text);
+}
+
+.download-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+  background: rgb(255 255 255 / 0.04);
+  cursor: pointer;
+}
+
+.download-code span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-align: left;
+}
+
+.download-code small {
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 430px) {
+  .download-features {
+    grid-template-columns: 1fr;
+  }
+
+  .download-features span {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
 /* Paisagem em tela inteira, estática e com proteção de contraste. */
 .home:has(.home__scene--landscape) {
   min-height: 100svh;
@@ -1773,6 +1893,23 @@ a {
     border-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
+
+/* A câmera ocupa o card sem alterar as dimensões da grade. */
+.tile__camera {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  background: var(--video-bg);
+  pointer-events: none;
+}
+
+.tile__camera--self { transform: scaleX(-1); }
+.tile--camera .tile__name,
+.tile--camera .tile__status,
+.tile--camera .tile__volume { z-index: 1; }
 
 .tile:hover {
   transform: translateY(-2px);

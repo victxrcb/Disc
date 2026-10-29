@@ -13,6 +13,10 @@ interface Props {
   micGateSupported: boolean;
   getMicMeter(): MicMeter;
   onMicChange(patch: Partial<MicSettings>): Promise<string | null>;
+  cameraOn: boolean;
+  cameraBusy: boolean;
+  cameraAvailable: boolean;
+  onToggleCamera(): void;
   sharing: boolean;
   quality: QualityId;
   chatOpen: boolean;
@@ -39,6 +43,20 @@ export function Controls(props: Props) {
         onToggleMute={props.onToggleMute}
         onChange={props.onMicChange}
       />
+
+      <button
+        type="button"
+        className={`ctrl${props.cameraOn ? ' ctrl--active' : ''}`}
+        onClick={props.onToggleCamera}
+        disabled={props.cameraBusy || !props.cameraAvailable}
+        aria-pressed={props.cameraOn}
+        aria-busy={props.cameraBusy}
+        aria-label={props.cameraOn ? 'Desligar câmera' : 'Ligar câmera'}
+        title={props.cameraBusy ? 'Aguardando permissão da câmera' : props.cameraOn ? 'Desligar câmera' : 'Ligar câmera'}
+      >
+        <span className="ctrl__icon"><Icon name={props.cameraOn ? 'camera' : 'cameraOff'} /></span>
+        <span className="ctrl__label">{props.cameraBusy ? 'Abrindo…' : 'Câmera'}</span>
+      </button>
 
       <div className="ctrl-group">
         <button
