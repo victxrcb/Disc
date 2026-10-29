@@ -13,6 +13,14 @@ import { Signaling, type ChatMessage, type PresenceMeta, type SoundEvent } from 
 import { isSafeImageDataUrl } from '../lib/chatImage';
 import { MusicSync } from '../lib/music';
 import { loadEffectsVolume, playSoundData, type Sound } from '../lib/soundpad';
+import {
+  loadMicSettings,
+  openMic,
+  saveMicSettings,
+  type MicMeter,
+  type MicPipeline,
+  type MicSettings,
+} from '../lib/mic';
 
 export const MAX_PARTICIPANTS = 5;
 const MAX_MESSAGES = 500;
@@ -45,6 +53,16 @@ export interface RoomState {
   sharing: boolean;
   shareHasAudio: boolean;
   quality: QualityId;
+  /** Entrada de áudio escolhida (dispositivo, sensibilidade e processamento). */
+  micSettings: MicSettings;
+  /** false quando o navegador não permite ajustar o volume da entrada (sem AudioContext). */
+  micGainSupported: boolean;
+  /** false quando o navegador não consegue filtrar por sensibilidade (sem AudioWorklet). */
+  micGateSupported: boolean;
+  /** Leitura ao vivo do volume da entrada, para o medidor. */
+  micMeter(): MicMeter;
+  /** Aplica mudanças na entrada. Devolve uma mensagem de erro, ou null se deu certo. */
+  changeMic(patch: Partial<MicSettings>, force?: boolean): Promise<string | null>;
   toggleMute(): void;
   startShare(): Promise<void>;
   stopShare(): void;
@@ -64,6 +82,14 @@ function micErrorMessage(err: unknown): string {
   if (name === 'NotAllowedError') return 'Microfone bloqueado. Você entrou só para ouvir — libere o microfone no navegador e entre de novo.';
   if (name === 'NotFoundError') return 'Nenhum microfone encontrado. Você entrou só para ouvir.';
   return 'Não foi possível usar o microfone. Você entrou só para ouvir.';
+}
+
+/** Mensagem para a troca de microfone no meio da chamada (a pessoa continua com o anterior). */
+function micSwitchMessage(err: unknown): string {
+  const name = err instanceof DOMException ? err.name : '';
+  if (name === 'NotAllowedError') return 'O navegador não permitiu usar esse microfone.';
+  if (name === 'NotFoundError') return 'Esse microfone não foi encontrado.';
+  return 'Não foi possível usar esse microfone. Continuamos com o anterior.';
 }
 
 function applyPresetToTrack(track: MediaStreamTrack, q: QualityPreset): void {
@@ -142,6 +168,9 @@ export function useRoom(roomCode: string, name: string): RoomState {
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
+  const [micSettings, setMicSettings] = useState<MicSettings>(loadMicSettings);
+  const [micGainSupported, setMicGainSupported] = useState(true);
+  const [micGateSupported, setMicGateSupported] = useState(false);
   const [quality, setQualityState] = useState<QualityId>(DEFAULT_QUALITY);
 
   const signalingRef = useRef<Signaling | null>(null);
@@ -150,6 +179,10 @@ export function useRoom(roomCode: string, name: string): RoomState {
   const screenRef = useRef<MediaStream | null>(null);
   const qualityRef = useRef<QualityId>(DEFAULT_QUALITY);
   const mutedRef = useRef(false);
+  const micSettingsRef = useRef(micSettings);
+  const pipelineRef = useRef<MicPipeline | null>(null);
+  const micSeq = useRef(0);
+  const changeMicRef = useRef<RoomState['changeMic']>(async () => null);
 
   const pushMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
@@ -190,28 +223,42 @@ export function useRoom(roomCode: string, name: string): RoomState {
       }
       micRef.current?.getTracks().forEach((t) => t.stop());
       micRef.current = null;
+      pipelineRef.current?.close();
+      pipelineRef.current = null;
       peers?.closeAll();
       void signaling?.leave();
       signalingRef.current = null;
       peersRef.current = null;
     };
 
+    // Microfone desconectado em uso: tenta o padrão do sistema; sem nenhum, avisa que ficou mudo.
+    const onMicLost = (lost: MicPipeline) => {
+      if (disposed || pipelineRef.current !== lost) return;
+      void changeMicRef.current({ deviceId: '' }, true).then((message) => {
+        if (message && !disposed && pipelineRef.current === lost) {
+          setMicError('O microfone foi desconectado e nenhum outro foi encontrado. Você segue só ouvindo.');
+        }
+      });
+    };
+
     const run = async () => {
-      let mic: MediaStream | null = null;
+      let pipeline: MicPipeline | null = null;
       try {
-        mic = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        });
+        pipeline = await openMic(micSettingsRef.current, onMicLost);
       } catch (err) {
         setMicError(micErrorMessage(err));
       }
       if (disposed) {
-        mic?.getTracks().forEach((t) => t.stop());
+        pipeline?.close();
         return;
       }
+      // O stream enviado aos peers é estável: trocar de microfone só troca a faixa dentro dele.
+      const mic = pipeline ? new MediaStream([pipeline.track]) : null;
+      pipelineRef.current = pipeline;
       micRef.current = mic;
       setMicStream(mic);
+      setMicGainSupported(pipeline?.gainSupported ?? true);
+      setMicGateSupported(pipeline?.gateSupported ?? false);
 
       peers = new PeerManager(
         selfId,
@@ -310,6 +357,80 @@ export function useRoom(roomCode: string, name: string): RoomState {
     setMuted(next);
     signalingRef.current?.updateMeta({ muted: next });
   }, []);
+
+  const changeMic = useCallback(async (patch: Partial<MicSettings>, force = false): Promise<string | null> => {
+    const prev = micSettingsRef.current;
+    const next = { ...prev, ...patch };
+    micSettingsRef.current = next;
+    setMicSettings(next);
+    saveMicSettings(next);
+
+    const current = pipelineRef.current;
+    if (!current) return null;
+    const reopen =
+      force ||
+      next.deviceId !== prev.deviceId ||
+      next.noiseSuppression !== prev.noiseSuppression ||
+      next.echoCancellation !== prev.echoCancellation ||
+      next.autoGainControl !== prev.autoGainControl;
+    if (!reopen) {
+      current.setGain(next.gain);
+      current.setGate(next.gate, next.gateThreshold);
+      return null;
+    }
+
+    const seq = ++micSeq.current;
+    let fresh: MicPipeline;
+    try {
+      fresh = await openMic(next, (lost) => {
+        if (pipelineRef.current === lost) void changeMicRef.current({ deviceId: '' }, true);
+      });
+    } catch (err) {
+      // Mantém o que estava funcionando e desfaz a escolha.
+      if (seq === micSeq.current && pipelineRef.current === current) {
+        const restored = { ...micSettingsRef.current, ...prev, gain: micSettingsRef.current.gain };
+        micSettingsRef.current = restored;
+        setMicSettings(restored);
+        saveMicSettings(restored);
+      }
+      return micSwitchMessage(err);
+    }
+    if (seq !== micSeq.current || pipelineRef.current !== current) {
+      fresh.close(); // outra troca (ou a saída da sala) passou na frente
+      return null;
+    }
+
+    const stream = micRef.current;
+    const oldTrack = current.track;
+    fresh.track.enabled = !mutedRef.current;
+    fresh.setGain(micSettingsRef.current.gain);
+    fresh.setGate(micSettingsRef.current.gate, micSettingsRef.current.gateThreshold);
+    pipelineRef.current = fresh;
+    if (stream) {
+      stream.removeTrack(oldTrack);
+      stream.addTrack(fresh.track);
+    }
+    setMicGainSupported(fresh.gainSupported);
+    setMicGateSupported(fresh.gateSupported);
+    setMicStream(new MediaStream([fresh.track]));
+    // Dispositivo escolhido não existia mais: segue no padrão e guarda isso.
+    if (next.deviceId && fresh.deviceId && fresh.deviceId !== next.deviceId) {
+      const synced = { ...micSettingsRef.current, deviceId: '' };
+      micSettingsRef.current = synced;
+      setMicSettings(synced);
+      saveMicSettings(synced);
+    }
+    await peersRef.current?.replaceLocalTrack(oldTrack, fresh.track);
+    current.close();
+    setMicError(null);
+    return null;
+  }, []);
+  changeMicRef.current = changeMic;
+
+  const micMeter = useCallback(
+    (): MicMeter => pipelineRef.current?.meter() ?? { db: -70, open: true, threshold: micSettingsRef.current.gateThreshold },
+    [],
+  );
 
   const startShare = useCallback(async () => {
     if (screenRef.current || !peersRef.current) return;
@@ -447,6 +568,11 @@ export function useRoom(roomCode: string, name: string): RoomState {
     sharing: screenStream !== null,
     shareHasAudio: (screenStream?.getAudioTracks().length ?? 0) > 0,
     quality,
+    micSettings,
+    micGainSupported,
+    micGateSupported,
+    micMeter,
+    changeMic,
     toggleMute,
     startShare,
     stopShare: stopShareInternal,

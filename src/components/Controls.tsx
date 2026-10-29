@@ -1,11 +1,18 @@
+import type { MicMeter, MicSettings } from '../lib/mic';
 import { QUALITY_PRESETS, type QualityId } from '../lib/quality';
 import type { Sound } from '../lib/soundpad';
 import { Icon } from './Icon';
+import { MicMenu } from './MicMenu';
 import { Soundpad } from './Soundpad';
 
 interface Props {
   muted: boolean;
   micAvailable: boolean;
+  micSettings: MicSettings;
+  micGainSupported: boolean;
+  micGateSupported: boolean;
+  getMicMeter(): MicMeter;
+  onMicChange(patch: Partial<MicSettings>): Promise<string | null>;
   sharing: boolean;
   quality: QualityId;
   chatOpen: boolean;
@@ -20,21 +27,18 @@ interface Props {
 
 export function Controls(props: Props) {
   const { muted, micAvailable, sharing, quality, chatOpen, unread } = props;
-  const micOff = muted || !micAvailable;
   return (
     <div className="controls">
-      <button
-        className={`ctrl${micOff ? ' ctrl--off' : ''}`}
-        onClick={props.onToggleMute}
-        disabled={!micAvailable}
-        title={!micAvailable ? 'Microfone indisponível' : muted ? 'Ligar microfone' : 'Desligar microfone'}
-      >
-        {/* key reinicia a animação de troca do ícone a cada mudança de estado. */}
-        <span className="ctrl__icon" key={micOff ? 'off' : 'on'}>
-          <Icon name={micOff ? 'micOff' : 'mic'} />
-        </span>
-        <span className="ctrl__label">{micOff ? 'Mudo' : 'Microfone'}</span>
-      </button>
+      <MicMenu
+        muted={muted}
+        micAvailable={micAvailable}
+        settings={props.micSettings}
+        gainSupported={props.micGainSupported}
+        gateSupported={props.micGateSupported}
+        getMeter={props.getMicMeter}
+        onToggleMute={props.onToggleMute}
+        onChange={props.onMicChange}
+      />
 
       <div className="ctrl-group">
         <button

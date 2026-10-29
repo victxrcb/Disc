@@ -189,6 +189,29 @@ export class PeerManager {
     }
   }
 
+  /**
+   * Troca a faixa enviada por outra (ex.: outro microfone) sem renegociar a conexão.
+   * Quem entrar depois já recebe a faixa nova.
+   */
+  async replaceLocalTrack(oldTrack: MediaStreamTrack, newTrack: MediaStreamTrack): Promise<void> {
+    const local = this.localTracks.find((t) => t.track === oldTrack);
+    if (!local) return;
+    local.track = newTrack;
+    await Promise.all(
+      [...this.peers.values()].map(async (peer) => {
+        const sender = peer.senders.get(oldTrack);
+        if (!sender) return;
+        peer.senders.delete(oldTrack);
+        peer.senders.set(newTrack, sender);
+        try {
+          await sender.replaceTrack(newTrack);
+        } catch (err) {
+          console.warn('[webrtc] não foi possível trocar a faixa de áudio', err);
+        }
+      }),
+    );
+  }
+
   /** Atualiza limites de encoder ao vivo (troca de qualidade durante o compartilhamento). */
   updateEncoding(track: MediaStreamTrack, patch: Partial<Omit<LocalTrack, 'track' | 'stream'>>): void {
     const local = this.localTracks.find((t) => t.track === track);

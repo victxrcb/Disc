@@ -179,6 +179,11 @@ export function Room({ code, name, onLeave }: Props) {
           <Controls
             muted={room.muted}
             micAvailable={!room.micError}
+            micSettings={room.micSettings}
+            micGainSupported={room.micGainSupported}
+            micGateSupported={room.micGateSupported}
+            getMicMeter={room.micMeter}
+            onMicChange={room.changeMic}
             sharing={room.sharing}
             quality={room.quality}
             chatOpen={chatOpen}
