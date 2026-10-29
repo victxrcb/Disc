@@ -11,6 +11,7 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.mp4': 'video/mp4',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
@@ -51,11 +52,33 @@ async function startLocalServer() {
       const candidate = path.resolve(distDirectory, relativePath || 'index.html');
       const isInsideDist = candidate === distDirectory || candidate.startsWith(`${distDirectory}${path.sep}`);
       const filePath = isInsideDist && (await fileExists(candidate)) ? candidate : indexFile;
-
-      response.writeHead(200, {
+      const fileStat = await fs.stat(filePath);
+      const range = request.headers.range;
+      const commonHeaders = {
         'Content-Type': MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
         'Cache-Control': filePath === indexFile ? 'no-cache' : 'public, max-age=31536000, immutable',
-      });
+        'Accept-Ranges': 'bytes',
+      };
+
+      if (range) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+        const start = match?.[1] ? Number(match[1]) : 0;
+        const end = match?.[2] ? Number(match[2]) : fileStat.size - 1;
+        if (!match || start > end || end >= fileStat.size) {
+          response.writeHead(416, { 'Content-Range': `bytes */${fileStat.size}` });
+          response.end();
+          return;
+        }
+        response.writeHead(206, {
+          ...commonHeaders,
+          'Content-Range': `bytes ${start}-${end}/${fileStat.size}`,
+          'Content-Length': end - start + 1,
+        });
+        createReadStream(filePath, { start, end }).pipe(response);
+        return;
+      }
+
+      response.writeHead(200, { ...commonHeaders, 'Content-Length': fileStat.size });
       createReadStream(filePath).pipe(response);
     } catch {
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });

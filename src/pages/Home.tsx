@@ -1,6 +1,8 @@
 import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode, CODE_LENGTH } from '../lib/roomCode';
 import { supabaseConfigured } from '../lib/supabase';
+import { useTheme } from '../lib/theme';
+import { ThemePicker } from '../components/ThemePicker';
 
 interface Props {
   initialCode: string;
@@ -12,6 +14,7 @@ const HomeScene = lazy(() => import('../components/HomeScene').catch(() => ({ de
 const MAX_NAME = 32;
 
 export function Home({ initialCode, initialName, onJoin }: Props) {
+  const { theme } = useTheme();
   const [name, setName] = useState(initialName);
   const [code, setCode] = useState(initialCode);
   const [touched, setTouched] = useState(false);
@@ -32,8 +35,8 @@ export function Home({ initialCode, initialName, onJoin }: Props) {
   };
 
   return (
-    <main className="home">
-      <Suspense fallback={null}><HomeScene /></Suspense>
+    <main className={`home${theme === 'default' ? '' : ' home--themed'}`}>
+      {theme === 'default' && <Suspense fallback={null}><HomeScene /></Suspense>}
       <p className="home__wordmark">
         Discord<br />2.0
       </p>
@@ -43,6 +46,8 @@ export function Home({ initialCode, initialName, onJoin }: Props) {
           Crie uma chamada, mande o código para os amigos e pronto: voz, tela compartilhada com áudio e chat, direto no
           navegador.
         </p>
+
+        <ThemePicker />
 
         {!supabaseConfigured && (
           <p className="notice notice--error">

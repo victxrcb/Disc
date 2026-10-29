@@ -59,7 +59,7 @@ export function Download() {
           <Icon name="download" size={20} />
           Baixar para Windows
         </a>
-        <p className="download-card__meta">Windows 10/11 · 64 bits · Versão 0.1.0</p>
+        <p className="download-card__meta">Windows 10/11 · 64 bits · Versão 0.2.0</p>
 
         <div className="download-features" aria-label="Recursos do aplicativo">
           <span><Icon name="mic" size={16} /> Voz sem cadastro</span>

@@ -3,6 +3,7 @@ import { isValidRoomCode, normalizeRoomCode } from './lib/roomCode';
 import { loadString, saveString } from './lib/storage';
 import { Home } from './pages/Home';
 import { Room } from './pages/Room';
+import { ThemeProvider } from './lib/theme';
 
 const NAME_KEY = 'resenha:name';
 
@@ -13,7 +14,7 @@ function codeFromPath(): string {
   return isValidRoomCode(code) ? code : '';
 }
 
-export default function DesktopApp() {
+function DesktopRoutes() {
   // A tela inicial preserva o gesto que libera microfone e reproducao de audio.
   const [route, setRoute] = useState<Route>(() => ({ page: 'home', code: codeFromPath() }));
 
@@ -48,5 +49,13 @@ export default function DesktopApp() {
         setRoute({ page: 'room', code, name });
       }}
     />
+  );
+}
+
+export default function DesktopApp() {
+  return (
+    <ThemeProvider>
+      <DesktopRoutes />
+    </ThemeProvider>
   );
 }

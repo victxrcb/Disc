@@ -6,6 +6,7 @@ import { MusicPanel } from '../components/MusicPanel';
 import { ParticipantTile } from '../components/ParticipantTile';
 import { ScreenView } from '../components/ScreenView';
 import { SoundToast } from '../components/SoundToast';
+import { ThemePicker } from '../components/ThemePicker';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { MAX_PARTICIPANTS, useRoom } from '../hooks/useRoom';
 
@@ -90,6 +91,7 @@ export function Room({ code, name, onLeave }: Props) {
           <img src="/favicon.svg" alt="" width={26} height={26} />
           <span>Discord 2.0</span>
         </div>
+        <ThemePicker compact />
         <div className="room__code">
           <button className="code-chip" onClick={() => copyCode(code)} title="Copiar código">
             <span className="code-chip__value">{code}</span>
