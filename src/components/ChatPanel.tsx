@@ -5,12 +5,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
+  type ClipboardEvent,
   type CSSProperties,
+  type DragEvent,
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { compressImage, imageFromDataTransfer, ImageTooLargeError } from '../lib/chatImage';
 import { Icon } from './Icon';
+import { ImageLightbox } from './ImageLightbox';
 
 export interface ChatMessage {
   id: string;
@@ -19,12 +24,14 @@ export interface ChatMessage {
   text: string;
   /** Epoch em ms, ISO string ou Date. */
   ts: number | string | Date;
+  /** data URL de imagem (já validada por quem entrega a mensagem). */
+  image?: string;
 }
 
 export interface ChatPanelProps {
   messages: ChatMessage[];
   selfId: string;
-  onSend(text: string): void;
+  onSend(text: string, image?: string): void;
 }
 
 /** Mensagens do mesmo autor com intervalo menor que isso ficam no mesmo grupo. */
@@ -47,7 +54,7 @@ interface MessageGroup {
   name: string;
   isSelf: boolean;
   startMs: number;
-  items: { id: string; text: string; ms: number }[];
+  items: { id: string; text: string; image?: string; ms: number }[];
 }
 
 function groupMessages(messages: ChatMessage[], selfId: string): MessageGroup[] {
@@ -57,7 +64,7 @@ function groupMessages(messages: ChatMessage[], selfId: string): MessageGroup[] 
     const last = groups[groups.length - 1];
     const lastItem = last?.items[last.items.length - 1];
     if (last && lastItem && last.from === m.from && ms - lastItem.ms < GROUP_WINDOW_MS) {
-      last.items.push({ id: m.id, text: m.text, ms });
+      last.items.push({ id: m.id, text: m.text, image: m.image, ms });
     } else {
       groups.push({
         key: m.id,
@@ -65,7 +72,7 @@ function groupMessages(messages: ChatMessage[], selfId: string): MessageGroup[] 
         name: m.name,
         isSelf: m.from === selfId,
         startMs: ms,
-        items: [{ id: m.id, text: m.text, ms }],
+        items: [{ id: m.id, text: m.text, image: m.image, ms }],
       });
     }
   }
@@ -125,6 +132,12 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [showJump, setShowJump] = useState(false);
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [viewing, setViewing] = useState<{ src: string; alt: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -193,11 +206,55 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
 
   useLayoutEffect(resizeInput, [draft]);
 
+  const attach = async (file: File | null | undefined) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setAttachError(null);
+    setAttaching(true);
+    try {
+      setAttachment(await compressImage(file));
+    } catch (err) {
+      setAttachError(err instanceof ImageTooLargeError ? err.message : 'Não foi possível ler essa imagem.');
+    } finally {
+      setAttaching(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = imageFromDataTransfer(e.clipboardData);
+    if (!file) return; // texto comum segue o fluxo normal
+    e.preventDefault();
+    void attach(file);
+  };
+
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+    void attach(e.target.files?.[0]);
+    e.target.value = ''; // permite escolher o mesmo arquivo de novo
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    setDragging(true);
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    setDragging(false);
+    const file = imageFromDataTransfer(e.dataTransfer);
+    if (!file) return;
+    e.preventDefault();
+    void attach(file);
+  };
+
+  const canSend = !attaching && (draft.trim() !== '' || attachment !== null);
+
   const send = () => {
     const text = draft.trim();
-    if (!text) return;
-    onSend(text);
+    if (!canSend) return;
+    onSend(text, attachment ?? undefined);
     setDraft('');
+    setAttachment(null);
+    setAttachError(null);
     stickToBottom.current = true;
     inputRef.current?.focus();
   };
@@ -241,8 +298,13 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
 
       <aside
         id="chat-panel"
-        className={`chat-panel${drawerOpen ? ' is-open' : ''}`}
+        className={`chat-panel${drawerOpen ? ' is-open' : ''}${dragging ? ' is-dragging' : ''}`}
         aria-label="Chat da chamada"
+        onDragOver={handleDragOver}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+        }}
+        onDrop={handleDrop}
       >
         <header className="chat-panel__header">
           <h2 className="chat-panel__title">Chat</h2>
@@ -285,11 +347,35 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
                       {timeFormatter.format(g.startMs)}
                     </time>
                   </div>
-                  {g.items.map((item) => (
-                    <p key={item.id} className="chat-bubble" title={timeFormatter.format(item.ms)}>
-                      {linkify(item.text)}
-                    </p>
-                  ))}
+                  {g.items.map((item) => {
+                    const alt = `Imagem enviada por ${g.isSelf ? 'você' : g.name}`;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`chat-bubble${item.image ? ' chat-bubble--image' : ''}`}
+                        title={timeFormatter.format(item.ms)}
+                      >
+                        {item.image && (
+                          <button
+                            type="button"
+                            className="chat-image"
+                            onClick={() => setViewing({ src: item.image!, alt })}
+                            aria-label={`${alt}. Abrir`}
+                          >
+                            <img
+                              src={item.image}
+                              alt={alt}
+                              // A altura só é conhecida depois do carregamento; mantém a lista no fim.
+                              onLoad={() => {
+                                if (stickToBottom.current) scrollToBottom();
+                              }}
+                            />
+                          </button>
+                        )}
+                        {item.text && <p className="chat-bubble__text">{linkify(item.text)}</p>}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             ))
@@ -302,23 +388,64 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
           </button>
         )}
 
+        {(attachment || attaching || attachError) && (
+          <div className="chat-attach" aria-live="polite">
+            {attaching && <span className="chat-attach__status">Preparando imagem…</span>}
+            {attachError && <span className="chat-attach__error">{attachError}</span>}
+            {attachment && (
+              <div className="chat-attach__preview">
+                <img src={attachment} alt="Imagem anexada" />
+                <button
+                  type="button"
+                  className="chat-attach__remove"
+                  onClick={() => setAttachment(null)}
+                  aria-label="Remover imagem"
+                  title="Remover imagem"
+                >
+                  <Icon name="close" size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <form className="chat-panel__composer" onSubmit={handleSubmit}>
+          <button
+            type="button"
+            className="icon-btn chat-panel__attach"
+            onClick={() => fileRef.current?.click()}
+            disabled={attaching}
+            aria-label="Anexar imagem"
+            title="Anexar imagem (ou cole com Ctrl+V)"
+          >
+            <Icon name="image" />
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
           <textarea
             ref={inputRef}
             className="chat-panel__input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escreva uma mensagem…"
+            onPaste={handlePaste}
+            placeholder={attachment ? 'Adicione uma legenda…' : 'Escreva uma mensagem…'}
             rows={1}
             aria-label="Mensagem"
             enterKeyHint="send"
           />
-          <button type="submit" className="btn btn--primary chat-panel__send" disabled={!draft.trim()} aria-label="Enviar">
+          <button type="submit" className="btn btn--primary chat-panel__send" disabled={!canSend} aria-label="Enviar">
             <Icon name="send" />
           </button>
         </form>
+        {dragging && (
+          <div className="chat-drop" aria-hidden="true">
+            <Icon name="image" size={28} />
+            Solte a imagem para anexar
+          </div>
+        )}
       </aside>
+
+      {viewing && <ImageLightbox src={viewing.src} alt={viewing.alt} onClose={() => setViewing(null)} />}
     </>
   );
 }

@@ -460,7 +460,7 @@ a {
   animation: rise-in var(--dur) var(--ease-out) both;
 }
 
-.chat-bubble:first-of-type {
+.chat-group__meta + .chat-bubble {
   border-top-left-radius: var(--radius);
 }
 
@@ -494,7 +494,7 @@ a {
   border-radius: var(--radius) 4px 4px var(--radius);
 }
 
-.chat-group--self .chat-bubble:first-of-type {
+.chat-group--self .chat-group__meta + .chat-bubble {
   border-top-right-radius: var(--radius);
 }
 
@@ -1931,6 +1931,338 @@ a {
 
   .volume__slider {
     height: 6px;
+  }
+}
+
+/* ==========================================================================
+   Painel de volume (botão direito no card)
+   ========================================================================== */
+
+/* Toque longo abre o painel: sem menu nativo nem seleção de texto no card. */
+.tile[aria-haspopup] {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.tile--menu {
+  border-color: var(--accent-soft-border);
+}
+
+.volume-pop {
+  position: fixed;
+  z-index: 70;
+  width: 264px;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  animation: volume-pop-in var(--dur-slow) var(--ease-out) both;
+}
+
+.volume-pop--closing {
+  animation: volume-pop-out 160ms var(--ease) both;
+  pointer-events: none;
+}
+
+@keyframes volume-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+    filter: blur(4px);
+  }
+}
+
+@keyframes volume-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.volume-pop__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.volume-pop__avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: hsl(var(--h, 250) 45% 32%);
+  color: hsl(var(--h, 250) 80% 88%);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.volume-pop__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.volume-pop__name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: var(--fw-medium);
+}
+
+.volume-pop__hint {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.volume-pop__percent {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: color var(--dur) var(--ease);
+}
+
+.volume-pop--boost .volume-pop__percent {
+  color: var(--accent);
+}
+
+.volume-pop--muted .volume-pop__percent {
+  color: var(--danger);
+}
+
+/* Dentro do painel o número já aparece no cabeçalho. */
+.volume-pop__control .volume__value {
+  display: none;
+}
+
+.volume-pop__control .volume__slider {
+  flex: 1;
+  width: auto;
+  height: 6px;
+}
+
+.volume-pop__presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+}
+
+.volume-pop__preset {
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.volume-pop__preset:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.volume-pop__preset:active {
+  transform: scale(0.95);
+}
+
+.volume-pop__preset.is-active {
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (pointer: coarse) {
+  .volume-pop {
+    width: min(300px, calc(100vw - 16px));
+  }
+
+  .volume-pop__preset {
+    min-height: var(--tap);
+  }
+}
+
+/* ==========================================================================
+   Imagens no chat
+   ========================================================================== */
+
+.chat-bubble__text {
+  margin: 0;
+}
+
+.chat-bubble--image {
+  padding: var(--space-1);
+}
+
+.chat-bubble--image .chat-bubble__text {
+  padding: var(--space-1) var(--space-2) var(--space-1);
+}
+
+.chat-image {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--radius) - 4px);
+  overflow: hidden;
+  background: var(--surface-3);
+  cursor: zoom-in;
+}
+
+.chat-image img {
+  display: block;
+  max-width: min(240px, 100%);
+  max-height: 240px;
+  object-fit: cover;
+  transition: transform var(--dur) var(--ease);
+}
+
+.chat-image:hover img {
+  transform: scale(1.03);
+}
+
+.chat-image:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.chat-panel__attach {
+  flex: none;
+  align-self: flex-end;
+}
+
+.chat-attach {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) 0;
+  font-size: var(--fs-xs);
+}
+
+.chat-attach__status {
+  color: var(--text-muted);
+}
+
+.chat-attach__error {
+  color: var(--danger);
+}
+
+.chat-attach__preview {
+  position: relative;
+  animation: scale-in var(--dur) var(--ease-out) both;
+}
+
+.chat-attach__preview img {
+  display: block;
+  max-width: 120px;
+  max-height: 80px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.chat-attach__remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chat-attach__remove:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.chat-drop {
+  position: absolute;
+  inset: var(--space-2);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 2px dashed var(--accent-soft-border);
+  border-radius: var(--radius-lg);
+  background: rgb(10 10 20 / 0.75);
+  color: var(--accent);
+  font-weight: var(--fw-medium);
+  pointer-events: none;
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+/* ---------- Visualizador de imagem ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 56px var(--space-4) var(--space-4);
+  background: rgb(5 5 12 / 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: zoom-out;
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.lightbox__img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  cursor: default;
+  animation: scale-in var(--dur-slow) var(--ease-out) both;
+}
+
+.lightbox__bar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.lightbox__bar .icon-btn {
+  color: var(--text);
+}
+
+.lightbox--closing {
+  animation: fade-out 180ms var(--ease) both;
+}
+
+.lightbox--closing .lightbox__img {
+  animation: scale-out 180ms var(--ease) both;
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
   }
 }
 

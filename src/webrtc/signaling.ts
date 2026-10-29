@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { isSafeImageDataUrl } from '../lib/chatImage';
 
 export interface PresenceMeta {
   id: string;
@@ -20,6 +21,8 @@ export interface ChatMessage {
   name: string;
   text: string;
   ts: number;
+  /** data URL de imagem já comprimida (ver lib/chatImage). */
+  image?: string;
 }
 
 interface SignalEnvelope {
@@ -69,7 +72,11 @@ export class Signaling {
       })
       .on('broadcast', { event: 'chat' }, ({ payload }) => {
         const msg = payload as ChatMessage;
-        if (msg?.id && typeof msg.text === 'string') this.handlers.onChat(msg);
+        if (!msg?.id || typeof msg.text !== 'string') return;
+        // Imagem inválida (ou SVG) é descartada; a mensagem só passa se sobrar texto ou imagem.
+        const image = isSafeImageDataUrl(msg.image) ? msg.image : undefined;
+        if (!msg.text && !image) return;
+        this.handlers.onChat({ id: msg.id, from: msg.from, name: msg.name, text: msg.text, ts: msg.ts, image });
       });
   }
 

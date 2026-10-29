@@ -10,6 +10,7 @@ import {
 } from '../lib/quality';
 import { PeerManager } from '../webrtc/PeerManager';
 import { Signaling, type ChatMessage, type PresenceMeta } from '../webrtc/signaling';
+import { isSafeImageDataUrl } from '../lib/chatImage';
 
 export const MAX_PARTICIPANTS = 5;
 const MAX_MESSAGES = 500;
@@ -40,7 +41,7 @@ export interface RoomState {
   startShare(): Promise<void>;
   stopShare(): void;
   setQuality(id: QualityId): void;
-  sendChat(text: string): void;
+  sendChat(text: string, image?: string): void;
 }
 
 function micErrorMessage(err: unknown): string {
@@ -61,6 +62,25 @@ function encodingFor(q: QualityPreset) {
     // Texto/código: mantém a nitidez e sacrifica fps. 60fps (jogos/vídeo): mantém a fluidez.
     degradationPreference: (q.frameRate >= 60 ? 'maintain-framerate' : 'maintain-resolution') as RTCDegradationPreference,
   };
+}
+
+type OwnAudioSettings = MediaTrackSettings & { restrictOwnAudio?: boolean; displaySurface?: string };
+
+/**
+ * Áudio da tela inteira inclui o som da própria chamada. Garante restrictOwnAudio quando o
+ * navegador suporta; se não suportar, avisa (quem ouve escutaria a própria voz de volta).
+ */
+async function excludeOwnAudio(audio: MediaStreamTrack, video: MediaStreamTrack | undefined): Promise<string | null> {
+  const surface = (video?.getSettings() as OwnAudioSettings | undefined)?.displaySurface;
+  if (surface !== 'monitor') return null; // aba/janela não capturam o áudio desta página
+  if ((audio.getSettings() as OwnAudioSettings).restrictOwnAudio) return null;
+  try {
+    await audio.applyConstraints({ restrictOwnAudio: true } as MediaTrackConstraints);
+  } catch {
+    /* sem suporte */
+  }
+  if ((audio.getSettings() as OwnAudioSettings).restrictOwnAudio) return null;
+  return 'Seu navegador vai enviar o som da chamada junto com o áudio da tela, e os outros vão ouvir a própria voz de volta. Use fone de ouvido ou compartilhe uma aba em vez da tela inteira.';
 }
 
 export function useRoom(roomCode: string, name: string): RoomState {
@@ -104,6 +124,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
       peersRef.current?.removeLocalTrack(track);
     }
     setScreenStream(null);
+    setShareError(null);
     signalingRef.current?.updateMeta({ screenStreamId: null });
   }, []);
 
@@ -241,7 +262,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
 
     let stream: MediaStream;
     try {
-      // systemAudio/selfBrowserSurface ainda não estão nos tipos do TS, mas Chrome/Edge os aceitam.
+      // systemAudio/selfBrowserSurface/restrictOwnAudio ainda não estão nos tipos do TS, mas Chrome/Edge os aceitam.
       const options = {
         video: videoConstraints(q),
         audio: {
@@ -249,6 +270,9 @@ export function useRoom(roomCode: string, name: string): RoomState {
           noiseSuppression: false,
           autoGainControl: false,
           suppressLocalAudioPlayback: false,
+          // Tira da captura do sistema o som tocado por esta página (as vozes da chamada);
+          // sem isso, quem fala ouve a própria voz voltar pela transmissão.
+          restrictOwnAudio: true,
         },
         systemAudio: 'include',
         selfBrowserSurface: 'exclude',
@@ -259,6 +283,11 @@ export function useRoom(roomCode: string, name: string): RoomState {
       if (err instanceof DOMException && err.name === 'NotAllowedError') return; // usuário cancelou
       setShareError('Não foi possível compartilhar a tela.');
       return;
+    }
+
+    let echoWarning: string | null = null;
+    for (const audio of stream.getAudioTracks()) {
+      echoWarning ??= await excludeOwnAudio(audio, stream.getVideoTracks()[0]);
     }
 
     const peers = peersRef.current;
@@ -280,6 +309,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
     }
 
     setScreenStream(stream);
+    if (echoWarning) setShareError(echoWarning);
     signalingRef.current?.updateMeta({ screenStreamId: stream.id });
   }, [stopShareInternal]);
 
@@ -295,10 +325,11 @@ export function useRoom(roomCode: string, name: string): RoomState {
   }, []);
 
   const sendChat = useCallback(
-    (raw: string) => {
+    (raw: string, image?: string) => {
       const text = raw.trim().slice(0, MAX_MESSAGE_LENGTH);
-      if (!text || !signalingRef.current) return;
-      const msg: ChatMessage = { id: crypto.randomUUID(), from: selfId, name, text, ts: Date.now() };
+      const safeImage = isSafeImageDataUrl(image) ? image : undefined;
+      if ((!text && !safeImage) || !signalingRef.current) return;
+      const msg: ChatMessage = { id: crypto.randomUUID(), from: selfId, name, text, ts: Date.now(), image: safeImage };
       signalingRef.current.sendChat(msg);
       pushMessage(msg);
     },
