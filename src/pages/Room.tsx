@@ -4,6 +4,7 @@ import { Controls } from '../components/Controls';
 import { Icon } from '../components/Icon';
 import { ParticipantTile } from '../components/ParticipantTile';
 import { ScreenView } from '../components/ScreenView';
+import { SoundToast } from '../components/SoundToast';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { MAX_PARTICIPANTS, useRoom } from '../hooks/useRoom';
 
@@ -155,13 +156,11 @@ export function Room({ code, name, onLeave }: Props) {
             </div>
           )}
           {room.lastSound && (
-            <div className="sound-toast" key={room.lastSound.key} role="status">
-              <Icon name="soundpad" size={16} />
-              <span>
-                <strong>{room.lastSound.from === room.selfId ? 'Você' : room.lastSound.by}</strong> tocou “
-                {room.lastSound.name}”
-              </span>
-            </div>
+            <SoundToast
+              key={room.lastSound.key}
+              sound={room.lastSound}
+              fromSelf={room.lastSound.from === room.selfId}
+            />
           )}
           {room.sharing && !room.shareHasAudio && (
             <p className="share-hint">

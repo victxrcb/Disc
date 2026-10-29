@@ -5,6 +5,7 @@ import {
   MAX_SOUNDS,
   saveEffectsVolume,
   saveSounds,
+  SOUNDS_CHANGED_EVENT,
   SoundError,
   type Sound,
 } from '../lib/soundpad';
@@ -44,6 +45,13 @@ export function Soundpad({ onPlay }: Props) {
   closeRef.current = close;
 
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+
+  // Sons salvos pelo "+" do aviso entram na lista mesmo com o painel aberto.
+  useEffect(() => {
+    const reload = () => setSounds(loadSounds());
+    window.addEventListener(SOUNDS_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(SOUNDS_CHANGED_EVENT, reload);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -144,7 +152,7 @@ export function Soundpad({ onPlay }: Props) {
                       type="button"
                       className="soundpad__sound"
                       onClick={() => play(s)}
-                      title={`Tocar “${s.name}” para todos (${s.duration.toFixed(1).replace('.', ',')}s)`}
+                      title={`Tocar “${s.name}” para todos${s.duration ? ` (${s.duration.toFixed(1).replace('.', ',')}s)` : ''}`}
                     >
                       {pressed?.id === s.id && <span key={pressed.key} className="soundpad__ripple" aria-hidden="true" />}
                       <Icon name="play" size={16} />

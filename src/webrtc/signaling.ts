@@ -34,6 +34,8 @@ export interface SoundEvent {
   /** Nome do som. */
   name: string;
   data: string;
+  /** Segundos; 0 se desconhecido (clientes antigos não enviam). */
+  duration: number;
 }
 
 interface SignalEnvelope {
@@ -94,7 +96,8 @@ export class Signaling {
         const s = payload as SoundEvent;
         const name = cleanSoundName(s?.name);
         if (typeof s?.from !== 'string' || !name || !isSafeSoundDataUrl(s.data)) return;
-        this.handlers.onSound({ from: s.from, by: cleanSoundName(s.by) || 'Alguém', name, data: s.data });
+        const duration = typeof s.duration === 'number' && s.duration > 0 && s.duration <= 11 ? s.duration : 0;
+        this.handlers.onSound({ from: s.from, by: cleanSoundName(s.by) || 'Alguém', name, data: s.data, duration });
       });
   }
 

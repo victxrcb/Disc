@@ -61,6 +61,22 @@ export function saveSounds(sounds: Sound[]): void {
   }
 }
 
+/** Avisa os painéis abertos (o Soundpad) que a biblioteca mudou. */
+export const SOUNDS_CHANGED_EVENT = 'disc:soundpad:changed';
+
+/**
+ * Guarda na biblioteca um som recebido de outra pessoa.
+ * Lança SoundError se a biblioteca estiver cheia ou sem espaço.
+ */
+export function addSoundToLibrary(sound: Omit<Sound, 'id'>): 'added' | 'duplicate' {
+  const sounds = loadSounds();
+  if (sounds.some((s) => s.data === sound.data)) return 'duplicate';
+  if (sounds.length >= MAX_SOUNDS) throw new SoundError(`Seu soundpad já tem ${MAX_SOUNDS} sons.`);
+  saveSounds([...sounds, { ...sound, id: crypto.randomUUID() }]);
+  window.dispatchEvent(new Event(SOUNDS_CHANGED_EVENT));
+  return 'added';
+}
+
 export function loadEffectsVolume(): number {
   const raw = loadString(VOLUME_KEY);
   const v = raw === '' ? DEFAULT_VOLUME : Number(raw);

@@ -347,7 +347,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
       const now = Date.now();
       if (now - (lastSoundAt.current.get(selfId) ?? 0) < SOUND_COOLDOWN_MS) return;
       lastSoundAt.current.set(selfId, now);
-      const event: SoundEvent = { from: selfId, by: name, name: sound.name, data: sound.data };
+      const event: SoundEvent = { from: selfId, by: name, name: sound.name, data: sound.data, duration: sound.duration };
       signalingRef.current?.sendSound(event);
       playSoundData(sound.data, loadEffectsVolume());
       setLastSound({ ...event, key: now });
