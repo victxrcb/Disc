@@ -998,8 +998,13 @@ a {
     animation: fade-in var(--dur) var(--ease) both;
   }
 
+  /* Fora da tela em vez de display: none — o player de música (aba Música) segue tocando. */
   .room__chat--hidden {
-    display: none;
+    position: fixed;
+    top: 0;
+    left: -200vw;
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 
@@ -2815,6 +2820,466 @@ a {
   .soundpad__remove {
     width: 28px;
     height: 28px;
+  }
+}
+
+/* ==========================================================================
+   Abas Chat / Música
+   ========================================================================== */
+
+.chat-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+}
+
+.chat-tabs__tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.chat-tabs__tab:hover {
+  color: var(--text);
+}
+
+.chat-tabs__tab.is-active {
+  background: var(--surface-4);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.chat-tabs__badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  animation: pop var(--dur-slow) var(--ease-out) both;
+}
+
+/* Equalizador animado enquanto a música toca. */
+.chat-tabs__eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.chat-tabs__eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: eq-bounce 900ms ease-in-out infinite;
+}
+
+.chat-tabs__eq i:nth-child(2) {
+  animation-delay: -300ms;
+}
+
+.chat-tabs__eq i:nth-child(3) {
+  animation-delay: -600ms;
+}
+
+@keyframes eq-bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* As duas abas ficam montadas, uma sobre a outra; a oculta só some da vista. */
+.chat-panel__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+
+.chat-tabpanel {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.chat-tabpanel.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+  animation: none;
+}
+
+/* ==========================================================================
+   Música (YouTube)
+   ========================================================================== */
+
+.chat-tabpanel--music {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.music {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.music__add {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.music__add input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.music__add input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: none;
+  outline: none;
+}
+
+.music__add .btn {
+  flex: none;
+  min-height: 40px;
+}
+
+.music__notice {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: var(--fs-xs);
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.music__notice--ok {
+  color: var(--success);
+}
+
+.music__notice--error {
+  color: var(--danger);
+}
+
+.music__now {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.music__player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #000;
+  animation: scale-in var(--dur-slow) var(--ease-out) both;
+}
+
+/* Sem música: o player continua montado, só fora da vista. */
+.music__now--empty .music__player {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.music__frame,
+.music__frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* O player é só visual: os controles são os do painel (iguais para todos). */
+.music__frame {
+  pointer-events: none;
+}
+
+.music__unblock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 0;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.music__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.music__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.music__by {
+  color: var(--text-faint);
+  font-size: var(--fs-xs);
+}
+
+.music__seek {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.music__seek input {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-full);
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--surface-4) var(--fill, 0%));
+  cursor: pointer;
+}
+
+.music__seek input::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: transform var(--dur) var(--ease);
+}
+
+.music__seek input::-moz-range-track {
+  background: transparent;
+}
+
+.music__seek input::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.music__seek input:hover::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+
+.music__seek input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.music__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.music__btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.music__btn:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.music__btn:active {
+  transform: scale(0.9);
+}
+
+.music__btn--main {
+  width: 44px;
+  height: 44px;
+  background: var(--accent-solid);
+  color: var(--accent-contrast);
+}
+
+.music__btn--main:hover {
+  background: var(--accent-solid-hover);
+  color: var(--accent-contrast);
+  transform: scale(1.05);
+}
+
+.music__btn-icon {
+  display: inline-grid;
+  animation: icon-swap var(--dur) var(--ease-out) both;
+}
+
+.music__volume {
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+.music__volume .volume__slider {
+  width: 80px;
+}
+
+.music__empty {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+.music__queue h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.music__queue h3 span {
+  color: var(--text-faint);
+  font-weight: var(--fw-medium);
+}
+
+.music__queue ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.music__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  border-radius: var(--radius);
+  animation: rise-in var(--dur) var(--ease-out) both;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.music__item:hover {
+  background: var(--surface-2);
+}
+
+.music__item img {
+  flex: none;
+  width: 64px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--surface-3);
+}
+
+.music__item-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.music__item-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--fs-sm);
+}
+
+.music__item-actions {
+  display: flex;
+  flex: none;
+}
+
+.music__item-actions .icon-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.music__item-actions .icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Ações da fila aparecem ao passar o mouse; no toque ficam sempre visíveis. */
+@media (hover: hover) {
+  .music__item-actions {
+    opacity: 0;
+    transition: opacity var(--dur) var(--ease);
+  }
+
+  .music__item:hover .music__item-actions,
+  .music__item:focus-within .music__item-actions {
+    opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  .music__item-actions .icon-btn {
+    width: 36px;
+    height: 36px;
   }
 }
 

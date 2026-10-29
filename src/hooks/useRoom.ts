@@ -11,6 +11,7 @@ import {
 import { PeerManager } from '../webrtc/PeerManager';
 import { Signaling, type ChatMessage, type PresenceMeta, type SoundEvent } from '../webrtc/signaling';
 import { isSafeImageDataUrl } from '../lib/chatImage';
+import { MusicSync } from '../lib/music';
 import { loadEffectsVolume, playSoundData, type Sound } from '../lib/soundpad';
 
 export const MAX_PARTICIPANTS = 5;
@@ -54,6 +55,8 @@ export interface RoomState {
   /** Sons tocados recentemente, para os avisos "Fulano tocou X" (mais novo por último). */
   soundToasts: SoundToastItem[];
   dismissSoundToast(key: number): void;
+  /** Música compartilhada da sala (YouTube). */
+  music: MusicSync;
 }
 
 function micErrorMessage(err: unknown): string {
@@ -107,6 +110,11 @@ export function useRoom(roomCode: string, name: string): RoomState {
   const [connStates, setConnStates] = useState<Record<string, RTCPeerConnectionState>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [soundToasts, setSoundToasts] = useState<SoundToastItem[]>([]);
+  // Uma instância por entrada na sala; envia pelo canal atual (se houver).
+  const music = useMemo(
+    () => new MusicSync(selfId, name, (msg) => signalingRef.current?.sendMusic(msg)),
+    [selfId, name],
+  );
   const soundTimes = useRef(new Map<string, number[]>());
   const toastSeq = useRef(0);
 
@@ -237,6 +245,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
                 return;
               }
               setStatus('joined');
+              music.requestState(); // quem já está na sala responde com a música atual
             }
 
             for (const p of others) {
@@ -251,6 +260,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
               setConnStates(({ [id]: _gone, ...rest }) => rest);
             }
             setPresence(list);
+            music.setParticipants(list);
           },
           onSignal: (from, signal) => {
             if (!disposed) peers?.handleSignal(from, signal);
@@ -263,6 +273,9 @@ export function useRoom(roomCode: string, name: string): RoomState {
             if (!allowSound(sound.from)) return;
             playSoundData(sound.data, loadEffectsVolume());
             showSoundToast(sound);
+          },
+          onMusic: (msg) => {
+            if (!disposed) music.receive(msg);
           },
           onError: (message) => {
             if (!disposed) setError(message);
@@ -288,7 +301,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
       window.removeEventListener('beforeunload', cleanup);
       cleanup();
     };
-  }, [roomCode, name, selfId, pushMessage]);
+  }, [roomCode, name, selfId, pushMessage, music]);
 
   const toggleMute = useCallback(() => {
     const next = !mutedRef.current;
@@ -442,5 +455,6 @@ export function useRoom(roomCode: string, name: string): RoomState {
     playSound,
     soundToasts,
     dismissSoundToast,
+    music,
   };
 }

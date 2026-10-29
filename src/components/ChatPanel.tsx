@@ -32,7 +32,13 @@ export interface ChatPanelProps {
   messages: ChatMessage[];
   selfId: string;
   onSend(text: string, image?: string): void;
+  /** Conteúdo da aba "Música". Fica sempre montado (o player continua tocando com a aba oculta). */
+  musicPanel?: ReactNode;
+  /** Mostra o indicador "tocando" na aba Música. */
+  musicPlaying?: boolean;
 }
+
+type Tab = 'chat' | 'music';
 
 /** Mensagens do mesmo autor com intervalo menor que isso ficam no mesmo grupo. */
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -127,11 +133,16 @@ function hueFor(id: string): number {
   return h % 360;
 }
 
-export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
+export function ChatPanel({ messages, selfId, onSend, musicPanel, musicPlaying = false }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [showJump, setShowJump] = useState(false);
+  const [tab, setTab] = useState<Tab>('chat');
+  /** Mensagens que chegaram enquanto a aba Música estava aberta. */
+  const [unseen, setUnseen] = useState(0);
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const [attachment, setAttachment] = useState<string | null>(null);
   const [attaching, setAttaching] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
@@ -172,10 +183,9 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
     if (stickToBottom.current || lastIsSelf) scrollToBottom();
     else setShowJump(true);
 
-    if (!drawerOpen) {
-      const fromOthers = messages.slice(-added).filter((m) => m.from !== selfId).length;
-      if (fromOthers) setUnread((n) => n + fromOthers);
-    }
+    const fromOthers = messages.slice(-added).filter((m) => m.from !== selfId).length;
+    if (fromOthers && !drawerOpen) setUnread((n) => n + fromOthers);
+    if (fromOthers && tabRef.current !== 'chat') setUnseen((n) => n + fromOthers);
   }, [messages, selfId, drawerOpen, scrollToBottom]);
 
   // Posição inicial no fim.
@@ -232,8 +242,19 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
     e.target.value = ''; // permite escolher o mesmo arquivo de novo
   };
 
+  const switchTab = (next: Tab) => {
+    setTab(next);
+    if (next === 'chat') {
+      setUnseen(0);
+      // A lista ficou oculta: volta ao fim depois que ela reaparecer.
+      requestAnimationFrame(() => {
+        if (stickToBottom.current) scrollToBottom();
+      });
+    }
+  };
+
   const handleDragOver = (e: DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes('Files')) return;
+    if (tab !== 'chat' || !Array.from(e.dataTransfer.types).includes('Files')) return;
     e.preventDefault();
     setDragging(true);
   };
@@ -307,7 +328,42 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
         onDrop={handleDrop}
       >
         <header className="chat-panel__header">
-          <h2 className="chat-panel__title">Chat</h2>
+          {musicPanel ? (
+            <div className="chat-tabs" role="tablist" aria-label="Chat e música">
+              <button
+                type="button"
+                role="tab"
+                id="chat-tab-chat"
+                aria-selected={tab === 'chat'}
+                aria-controls="chat-tabpanel-chat"
+                className={`chat-tabs__tab${tab === 'chat' ? ' is-active' : ''}`}
+                onClick={() => switchTab('chat')}
+              >
+                <Icon name="chat" size={16} /> Chat
+                {unseen > 0 && <span className="chat-tabs__badge">{unseen > 99 ? '99+' : unseen}</span>}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="chat-tab-music"
+                aria-selected={tab === 'music'}
+                aria-controls="chat-tabpanel-music"
+                className={`chat-tabs__tab${tab === 'music' ? ' is-active' : ''}`}
+                onClick={() => switchTab('music')}
+              >
+                <Icon name="music" size={16} /> Música
+                {musicPlaying && (
+                  <span className="chat-tabs__eq" aria-label="tocando">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                )}
+              </button>
+            </div>
+          ) : (
+            <h2 className="chat-panel__title">Chat</h2>
+          )}
           <button
             type="button"
             className="icon-btn chat-panel__close"
@@ -318,125 +374,147 @@ export function ChatPanel({ messages, selfId, onSend }: ChatPanelProps) {
           </button>
         </header>
 
-        <div
-          ref={listRef}
-          className="chat-panel__list"
-          onScroll={handleScroll}
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions"
-        >
-          {groups.length === 0 ? (
-            <p className="chat-panel__empty">Nenhuma mensagem ainda. Diga oi 👋</p>
-          ) : (
-            groups.map((g) => (
-              <section
-                key={g.key}
-                className={`chat-group${g.isSelf ? ' chat-group--self' : ''}`}
-                style={{ '--author-hue': hueFor(g.from) } as CSSProperties}
-              >
-                {!g.isSelf && (
-                  <div className="chat-group__avatar" aria-hidden="true">
-                    {initials(g.name)}
+        <div className="chat-panel__body">
+          <div
+            id="chat-tabpanel-chat"
+            role="tabpanel"
+            aria-labelledby="chat-tab-chat"
+            className={`chat-tabpanel${tab === 'chat' ? '' : ' is-hidden'}`}
+            inert={tab !== 'chat'}
+          >
+            <div
+              ref={listRef}
+              className="chat-panel__list"
+              onScroll={handleScroll}
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
+            >
+              {groups.length === 0 ? (
+                <p className="chat-panel__empty">Nenhuma mensagem ainda. Diga oi 👋</p>
+              ) : (
+                groups.map((g) => (
+                  <section
+                    key={g.key}
+                    className={`chat-group${g.isSelf ? ' chat-group--self' : ''}`}
+                    style={{ '--author-hue': hueFor(g.from) } as CSSProperties}
+                  >
+                    {!g.isSelf && (
+                      <div className="chat-group__avatar" aria-hidden="true">
+                        {initials(g.name)}
+                      </div>
+                    )}
+                    <div className="chat-group__body">
+                      <div className="chat-group__meta">
+                        <span className="chat-group__name">{g.isSelf ? 'Você' : g.name}</span>
+                        <time dateTime={new Date(g.startMs).toISOString()} title={fullFormatter.format(g.startMs)}>
+                          {timeFormatter.format(g.startMs)}
+                        </time>
+                      </div>
+                      {g.items.map((item) => {
+                        const alt = `Imagem enviada por ${g.isSelf ? 'você' : g.name}`;
+                        return (
+                          <div
+                            key={item.id}
+                            className={`chat-bubble${item.image ? ' chat-bubble--image' : ''}`}
+                            title={timeFormatter.format(item.ms)}
+                          >
+                            {item.image && (
+                              <button
+                                type="button"
+                                className="chat-image"
+                                onClick={() => setViewing({ src: item.image!, alt })}
+                                aria-label={`${alt}. Abrir`}
+                              >
+                                <img
+                                  src={item.image}
+                                  alt={alt}
+                                  // A altura só é conhecida depois do carregamento; mantém a lista no fim.
+                                  onLoad={() => {
+                                    if (stickToBottom.current) scrollToBottom();
+                                  }}
+                                />
+                              </button>
+                            )}
+                            {item.text && <p className="chat-bubble__text">{linkify(item.text)}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))
+              )}
+            </div>
+
+            {showJump && (
+              <button type="button" className="chat-panel__jump" onClick={() => scrollToBottom('smooth')}>
+                Novas mensagens ↓
+              </button>
+            )}
+
+            {(attachment || attaching || attachError) && (
+              <div className="chat-attach" aria-live="polite">
+                {attaching && <span className="chat-attach__status">Preparando imagem…</span>}
+                {attachError && <span className="chat-attach__error">{attachError}</span>}
+                {attachment && (
+                  <div className="chat-attach__preview">
+                    <img src={attachment} alt="Imagem anexada" />
+                    <button
+                      type="button"
+                      className="chat-attach__remove"
+                      onClick={() => setAttachment(null)}
+                      aria-label="Remover imagem"
+                      title="Remover imagem"
+                    >
+                      <Icon name="close" size={16} />
+                    </button>
                   </div>
                 )}
-                <div className="chat-group__body">
-                  <div className="chat-group__meta">
-                    <span className="chat-group__name">{g.isSelf ? 'Você' : g.name}</span>
-                    <time dateTime={new Date(g.startMs).toISOString()} title={fullFormatter.format(g.startMs)}>
-                      {timeFormatter.format(g.startMs)}
-                    </time>
-                  </div>
-                  {g.items.map((item) => {
-                    const alt = `Imagem enviada por ${g.isSelf ? 'você' : g.name}`;
-                    return (
-                      <div
-                        key={item.id}
-                        className={`chat-bubble${item.image ? ' chat-bubble--image' : ''}`}
-                        title={timeFormatter.format(item.ms)}
-                      >
-                        {item.image && (
-                          <button
-                            type="button"
-                            className="chat-image"
-                            onClick={() => setViewing({ src: item.image!, alt })}
-                            aria-label={`${alt}. Abrir`}
-                          >
-                            <img
-                              src={item.image}
-                              alt={alt}
-                              // A altura só é conhecida depois do carregamento; mantém a lista no fim.
-                              onLoad={() => {
-                                if (stickToBottom.current) scrollToBottom();
-                              }}
-                            />
-                          </button>
-                        )}
-                        {item.text && <p className="chat-bubble__text">{linkify(item.text)}</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))
-          )}
-        </div>
-
-        {showJump && (
-          <button type="button" className="chat-panel__jump" onClick={() => scrollToBottom('smooth')}>
-            Novas mensagens ↓
-          </button>
-        )}
-
-        {(attachment || attaching || attachError) && (
-          <div className="chat-attach" aria-live="polite">
-            {attaching && <span className="chat-attach__status">Preparando imagem…</span>}
-            {attachError && <span className="chat-attach__error">{attachError}</span>}
-            {attachment && (
-              <div className="chat-attach__preview">
-                <img src={attachment} alt="Imagem anexada" />
-                <button
-                  type="button"
-                  className="chat-attach__remove"
-                  onClick={() => setAttachment(null)}
-                  aria-label="Remover imagem"
-                  title="Remover imagem"
-                >
-                  <Icon name="close" size={16} />
-                </button>
               </div>
             )}
-          </div>
-        )}
 
-        <form className="chat-panel__composer" onSubmit={handleSubmit}>
-          <button
-            type="button"
-            className="icon-btn chat-panel__attach"
-            onClick={() => fileRef.current?.click()}
-            disabled={attaching}
-            aria-label="Anexar imagem"
-            title="Anexar imagem (ou cole com Ctrl+V)"
-          >
-            <Icon name="image" />
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
-          <textarea
-            ref={inputRef}
-            className="chat-panel__input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={attachment ? 'Adicione uma legenda…' : 'Escreva uma mensagem…'}
-            rows={1}
-            aria-label="Mensagem"
-            enterKeyHint="send"
-          />
-          <button type="submit" className="btn btn--primary chat-panel__send" disabled={!canSend} aria-label="Enviar">
-            <Icon name="send" />
-          </button>
-        </form>
+            <form className="chat-panel__composer" onSubmit={handleSubmit}>
+              <button
+                type="button"
+                className="icon-btn chat-panel__attach"
+                onClick={() => fileRef.current?.click()}
+                disabled={attaching}
+                aria-label="Anexar imagem"
+                title="Anexar imagem (ou cole com Ctrl+V)"
+              >
+                <Icon name="image" />
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleFile} />
+              <textarea
+                ref={inputRef}
+                className="chat-panel__input"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder={attachment ? 'Adicione uma legenda…' : 'Escreva uma mensagem…'}
+                rows={1}
+                aria-label="Mensagem"
+                enterKeyHint="send"
+              />
+              <button type="submit" className="btn btn--primary chat-panel__send" disabled={!canSend} aria-label="Enviar">
+                <Icon name="send" />
+              </button>
+            </form>
+          </div>
+
+          {musicPanel && (
+            <div
+              id="chat-tabpanel-music"
+              role="tabpanel"
+              aria-labelledby="chat-tab-music"
+              className={`chat-tabpanel chat-tabpanel--music${tab === 'music' ? '' : ' is-hidden'}`}
+              inert={tab !== 'music'}
+            >
+              {musicPanel}
+            </div>
+          )}
+        </div>
         {dragging && (
           <div className="chat-drop" aria-hidden="true">
             <Icon name="image" size={28} />

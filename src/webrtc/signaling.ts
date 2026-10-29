@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { isSafeImageDataUrl } from '../lib/chatImage';
+import type { MusicMessage } from '../lib/music';
 import { cleanSoundName, isSafeSoundDataUrl } from '../lib/soundpad';
 
 export interface PresenceMeta {
@@ -49,6 +50,7 @@ export interface SignalingHandlers {
   onSignal(from: string, signal: Signal): void;
   onChat(message: ChatMessage): void;
   onSound(sound: SoundEvent): void;
+  onMusic(message: MusicMessage): void;
   onError(message: string): void;
 }
 
@@ -98,7 +100,9 @@ export class Signaling {
         if (typeof s?.from !== 'string' || !name || !isSafeSoundDataUrl(s.data)) return;
         const duration = typeof s.duration === 'number' && s.duration > 0 && s.duration <= 11 ? s.duration : 0;
         this.handlers.onSound({ from: s.from, by: cleanSoundName(s.by) || 'Alguém', name, data: s.data, duration });
-      });
+      })
+      // Validado em MusicSync.receive.
+      .on('broadcast', { event: 'music' }, ({ payload }) => this.handlers.onMusic(payload as MusicMessage));
   }
 
   join(): Promise<void> {
@@ -140,6 +144,11 @@ export class Signaling {
   sendChat(message: ChatMessage): void {
     if (this.closed) return;
     void this.channel.send({ type: 'broadcast', event: 'chat', payload: message });
+  }
+
+  sendMusic(message: MusicMessage): void {
+    if (this.closed) return;
+    void this.channel.send({ type: 'broadcast', event: 'music', payload: message });
   }
 
   sendSound(sound: SoundEvent): void {

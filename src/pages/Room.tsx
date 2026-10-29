@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ChatPanel } from '../components/ChatPanel';
 import { Controls } from '../components/Controls';
 import { Icon } from '../components/Icon';
+import { MusicPanel } from '../components/MusicPanel';
 import { ParticipantTile } from '../components/ParticipantTile';
 import { ScreenView } from '../components/ScreenView';
 import { SoundToast } from '../components/SoundToast';
@@ -36,6 +37,7 @@ function useCopy(): [boolean, (text: string) => void] {
 
 export function Room({ code, name, onLeave }: Props) {
   const room = useRoom(code, name);
+  const musicPlaying = useSyncExternalStore(room.music.subscribe, () => room.music.getState().playing);
   const [chatOpen, setChatOpen] = useState(true);
   const [unread, setUnread] = useState(0);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -194,7 +196,13 @@ export function Room({ code, name, onLeave }: Props) {
         </main>
 
         <div className={`room__chat${chatOpen ? '' : ' room__chat--hidden'}`}>
-          <ChatPanel messages={room.messages} selfId={room.selfId} onSend={room.sendChat} />
+          <ChatPanel
+            messages={room.messages}
+            selfId={room.selfId}
+            onSend={room.sendChat}
+            musicPanel={<MusicPanel music={room.music} />}
+            musicPlaying={musicPlaying}
+          />
         </div>
       </div>
     </div>
