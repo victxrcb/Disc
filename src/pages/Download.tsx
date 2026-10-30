@@ -59,7 +59,7 @@ export function Download() {
           <Icon name="download" size={20} />
           Baixar para Windows
         </a>
-        <p className="download-card__meta">Windows 10/11 · 64 bits · Versão 0.4.2</p>
+        <p className="download-card__meta">Windows 10/11 · 64 bits · Versão 0.4.3</p>
 
         <div className="download-features" aria-label="Recursos do aplicativo">
           <span><Icon name="users" size={16} /> Perfis e amigos</span>
