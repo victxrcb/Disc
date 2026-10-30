@@ -1048,18 +1048,7 @@ a {
 .eyebrow { color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 .notice--success { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); }
 
-.auth-page { min-height: 100vh; display: grid; grid-template-columns: minmax(360px, 1.15fr) minmax(420px, .85fr); background: var(--bg); }
-.auth-hero { position: relative; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: 48px clamp(40px, 7vw, 110px) 72px; background: radial-gradient(circle at 25% 20%, var(--accent-glow), transparent 38%), linear-gradient(145deg, #11101b, #07070d 68%); }
-.auth-hero::after { content: ''; position: absolute; width: 480px; height: 480px; right: -100px; bottom: -160px; border: 1px solid var(--accent-soft-border); border-radius: 50%; box-shadow: 0 0 0 80px color-mix(in srgb, var(--accent) 4%, transparent), 0 0 0 160px color-mix(in srgb, var(--accent) 2%, transparent); }
-.auth-hero .home__wordmark { position: static; margin: 0; font-size: 21px; line-height: .82; }
-.auth-hero > div { position: relative; z-index: 1; max-width: 620px; }
-.auth-hero h1 { margin: 14px 0 16px; max-width: 580px; font-size: clamp(46px, 6vw, 82px); line-height: .94; letter-spacing: -.055em; }
-.auth-hero p:not(.home__wordmark) { max-width: 500px; margin: 0; color: var(--text-muted); font-size: 18px; line-height: 1.6; }
-.auth-card { align-self: center; width: min(430px, calc(100% - 56px)); margin: auto; padding: 36px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface-1); box-shadow: var(--shadow-lg); }
-.auth-card__head { display: flex; gap: 14px; align-items: center; margin-bottom: 28px; }
-.auth-card__head img { width: 46px; height: 46px; border-radius: 14px; }
-.auth-card__head h2 { margin: 0 0 5px; font-size: 24px; }.auth-card__head p { margin: 0; color: var(--text-muted); font-size: 13px; }
-.auth-form { display: flex; flex-direction: column; gap: 17px; }.auth-switch { width: 100%; margin-top: 20px; border: 0; background: none; color: var(--accent); cursor: pointer; }
+.auth-form { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .dashboard { min-height: 100vh; display: grid; grid-template-columns: 250px minmax(0, 1fr); background: var(--bg); }
 .app-sidebar { position: sticky; top: 0; z-index: 10; height: 100vh; display: flex; flex-direction: column; padding: 24px 14px 14px; border-right: 1px solid var(--border); background: color-mix(in srgb, var(--surface-1) 92%, transparent); backdrop-filter: blur(20px); }

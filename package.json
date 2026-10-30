@@ -4,7 +4,7 @@
   "description": "Chamadas de voz, video e compartilhamento para amigos.",
   "author": "victxrcb",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
