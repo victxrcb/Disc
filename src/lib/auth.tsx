@@ -7,6 +7,7 @@ export interface Profile {
   username: string;
   display_name: string;
   avatar_url: string | null;
+  banner_url: string | null;
   theme: 'default' | 'queen' | 'celestial';
 }
 
@@ -31,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
-    const { data } = await supabase.from('profiles').select('id,username,display_name,avatar_url,theme').eq('id', user.id).maybeSingle();
+    const { data } = await supabase.from('profiles').select('id,username,display_name,avatar_url,banner_url,theme').eq('id', user.id).maybeSingle();
     setProfile(data as Profile | null);
   };
 

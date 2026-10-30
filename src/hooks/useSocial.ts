@@ -46,7 +46,7 @@ export function useSocial() {
     const ids = [...new Set((links ?? []).map((row) => row.requester_id === user.id ? row.addressee_id : row.requester_id))];
     const senderIds = [...new Set((callRows ?? []).map((row) => row.sender_id as string))];
     const allIds = [...new Set([...ids, ...senderIds])];
-    const { data: people } = allIds.length ? await supabase.from('profiles').select('id,username,display_name,avatar_url,theme').in('id', allIds) : { data: [] };
+    const { data: people } = allIds.length ? await supabase.from('profiles').select('id,username,display_name,avatar_url,banner_url,theme').in('id', allIds) : { data: [] };
     const byId = new Map((people ?? []).map((person) => [person.id, person as Profile]));
     setFriendships((links ?? []).flatMap((row) => {
       const otherId = row.requester_id === user.id ? row.addressee_id : row.requester_id;

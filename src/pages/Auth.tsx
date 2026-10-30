@@ -113,7 +113,7 @@ export function AuthPage() {
               type={isLogin ? 'text' : 'email'}
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder={isLogin ? 'voce@email.com ou seu_usuario' : 'voce@email.com'}
+              placeholder={isLogin ? 'E-mail ou usuário' : 'voce@email.com'}
               autoComplete={isLogin ? 'username' : 'email'}
               autoFocus={isLogin}
               required
