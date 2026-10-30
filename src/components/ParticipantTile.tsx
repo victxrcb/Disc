@@ -22,7 +22,14 @@ function hue(id: string): number {
   return h;
 }
 
-export function ParticipantTile({ participant, compact = false }: { participant: Participant; compact?: boolean }) {
+interface Props {
+  participant: Participant;
+  compact?: boolean;
+  featured?: boolean;
+  onSelect?: () => void;
+}
+
+export function ParticipantTile({ participant, compact = false, featured = false, onSelect }: Props) {
   const { name, isSelf, muted, micStream, connection, id } = participant;
   const speaking = useSpeaking(micStream, !muted);
   const [volume, setVolume] = usePeerVolume(name);
@@ -81,25 +88,37 @@ export function ParticipantTile({ participant, compact = false }: { participant:
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (isSelf || e.target !== e.currentTarget || e.key !== 'Enter') return;
+    if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
     e.preventDefault();
+    if (onSelect) {
+      onSelect();
+      return;
+    }
+    if (isSelf) return;
     const r = e.currentTarget.getBoundingClientRect();
     openMenu(r.left + r.width / 2, r.top + r.height / 2);
   };
 
+  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (!onSelect || performance.now() - longPressAt.current < 1000) return;
+    if ((e.target as HTMLElement).closest('button, input, .volume, [role="dialog"]')) return;
+    onSelect();
+  };
+
   return (
     <div
-      className={`tile${speaking ? ' tile--speaking' : ''}${compact ? ' tile--compact' : ''}${participant.cameraStream ? ' tile--camera' : ''}${menu ? ' tile--menu' : ''}`}
+      className={`tile${speaking ? ' tile--speaking' : ''}${compact ? ' tile--compact' : ''}${featured ? ' tile--featured' : ''}${participant.cameraStream ? ' tile--camera' : ''}${menu ? ' tile--menu' : ''}${onSelect ? ' tile--selectable' : ''}`}
+      onClick={handleClick}
       onContextMenu={handleContextMenu}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={cancelPress}
       onPointerCancel={cancelPress}
       onKeyDown={handleKeyDown}
-      tabIndex={isSelf ? undefined : 0}
+      tabIndex={onSelect || !isSelf ? 0 : undefined}
       aria-haspopup={isSelf ? undefined : 'dialog'}
-      aria-label={isSelf ? undefined : `${name}. Botão direito ou Enter para ajustar o volume`}
-      title={isSelf ? undefined : 'Botão direito para ajustar o volume'}
+      aria-label={onSelect ? `Destacar câmera de ${name}` : isSelf ? undefined : `${name}. Botão direito ou Enter para ajustar o volume`}
+      title={onSelect ? 'Clique para destacar esta câmera' : isSelf ? undefined : 'Botão direito para ajustar o volume'}
     >
       {!isSelf && <MediaElement kind="audio" stream={micStream} volume={volume} />}
       {participant.cameraStream ? (

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, desktopCapturer, session, shell } = require('electron');
+const { app, BrowserWindow, desktopCapturer, dialog, Notification, session, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const { createReadStream, promises: fs } = require('node:fs');
 const { createServer } = require('node:http');
 const path = require('node:path');
@@ -19,6 +20,152 @@ const MIME_TYPES = {
 };
 
 let localServer;
+let mainWindow;
+
+function showAppDialog(options) {
+  return mainWindow && !mainWindow.isDestroyed()
+    ? dialog.showMessageBox(mainWindow, options)
+    : dialog.showMessageBox(options);
+}
+
+function setupAutoUpdates() {
+  // Em desenvolvimento não existe app-update.yml nem uma instalação NSIS para atualizar.
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    const body = `A versão ${info.version} está sendo baixada em segundo plano.`;
+    if (Notification.isSupported()) {
+      new Notification({ title: 'Nova atualização disponível', body }).show();
+    } else {
+      void showAppDialog({
+        type: 'info',
+        title: 'Nova atualização disponível',
+        message: 'Uma nova versão está disponível',
+        detail: body,
+        buttons: ['Entendi'],
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    const { response } = await showAppDialog({
+      type: 'info',
+      title: 'Atualização pronta',
+      message: `A versão ${info.version} está pronta para instalar`,
+      detail: 'Reinicie agora para concluir. Se escolher “Depois”, a atualização será instalada quando o aplicativo for fechado.',
+      buttons: ['Reiniciar e atualizar', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (response === 0) autoUpdater.quitAndInstall(false, true);
+  });
+
+  autoUpdater.on('error', (error) => {
+    // Falhas de rede não devem impedir o usuário de entrar no aplicativo.
+    console.error('[update] Não foi possível verificar/instalar a atualização:', error);
+  });
+
+  const timer = setTimeout(() => {
+    void autoUpdater.checkForUpdates().catch((error) => {
+      console.error('[update] Verificação falhou:', error);
+    });
+  }, 1500);
+  timer.unref();
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+/**
+ * O Chromium não oferece um seletor próprio quando o Electron trata
+ * getDisplayMedia. Exibe uma janela modal para nunca escolher a primeira tela
+ * silenciosamente e também permite pedir o áudio de loopback no Windows.
+ */
+async function chooseDisplaySource(parent) {
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 320, height: 180 },
+    fetchWindowIcons: true,
+  });
+  if (!sources.length) return null;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (selection) => {
+      if (settled) return;
+      settled = true;
+      resolve(selection);
+      if (!picker.isDestroyed()) picker.close();
+    };
+    const picker = new BrowserWindow({
+      parent: parent && !parent.isDestroyed() ? parent : undefined,
+      modal: Boolean(parent && !parent.isDestroyed()),
+      width: 860,
+      height: 650,
+      minWidth: 640,
+      minHeight: 480,
+      show: false,
+      autoHideMenuBar: true,
+      backgroundColor: '#111114',
+      title: 'Escolher o que compartilhar',
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    const cards = sources.map((source, index) => `
+      <button class="source" type="button" data-index="${index}">
+        <img src="${source.thumbnail.toDataURL()}" alt="" />
+        <span>${escapeHtml(source.name || `Fonte ${index + 1}`)}</span>
+      </button>`).join('');
+    const html = `<!doctype html>
+      <html lang="pt-BR"><head><meta charset="utf-8" />
+      <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+      <meta name="viewport" content="width=device-width,initial-scale=1" />
+      <title>Escolher o que compartilhar</title><style>
+        *{box-sizing:border-box} body{margin:0;background:#111114;color:#f5f5f7;font:14px system-ui,-apple-system,'Segoe UI',sans-serif}
+        header{position:sticky;top:0;z-index:2;padding:22px 24px 16px;background:linear-gradient(#111114 82%,transparent)}
+        h1{margin:0 0 7px;font-size:22px} p{margin:0;color:#a8a8b3}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;padding:8px 24px 96px}
+        .source{min-width:0;padding:8px;border:1px solid #32323a;border-radius:12px;background:#1b1b20;color:inherit;text-align:left;cursor:pointer}
+        .source:hover,.source:focus-visible{border-color:#817cff;outline:none;box-shadow:0 0 0 3px #817cff33}.source img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;border-radius:7px;background:#09090b}
+        .source span{display:block;overflow:hidden;padding:9px 3px 3px;text-overflow:ellipsis;white-space:nowrap}
+        footer{position:fixed;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 24px;border-top:1px solid #2b2b32;background:#151519}
+        label{display:flex;align-items:center;gap:9px;cursor:pointer}input{width:18px;height:18px;accent-color:#817cff}.cancel{padding:9px 16px;border:1px solid #3a3a43;border-radius:9px;background:#222228;color:inherit;cursor:pointer}
+      </style></head><body><header><h1>Escolha uma tela ou janela</h1><p>Nada será transmitido até você selecionar uma opção.</p></header>
+      <main class="grid">${cards}</main><footer><label><input id="audio" type="checkbox" checked /> Compartilhar áudio do sistema</label><button class="cancel" id="cancel" type="button">Cancelar</button></footer>
+      <script>
+        document.querySelectorAll('.source').forEach((button) => button.addEventListener('click', () => {
+          location.href = 'disc-capture://select/' + button.dataset.index + '?audio=' + (document.querySelector('#audio').checked ? '1' : '0');
+        }));
+        document.querySelector('#cancel').addEventListener('click', () => { location.href = 'disc-capture://cancel'; });
+      </script></body></html>`;
+
+    picker.webContents.on('will-navigate', (event, url) => {
+      if (!url.startsWith('disc-capture://')) return;
+      event.preventDefault();
+      const parsed = new URL(url);
+      if (parsed.hostname === 'cancel') return finish(null);
+      const index = Number(parsed.pathname.replace(/^\//, ''));
+      const source = sources[index];
+      finish(source ? { source, withAudio: parsed.searchParams.get('audio') === '1' } : null);
+    });
+    picker.on('closed', () => finish(null));
+    picker.once('ready-to-show', () => picker.show());
+    void picker.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  });
+}
 
 function isTrustedOrigin(origin) {
   try {
@@ -111,6 +258,10 @@ async function createWindow() {
       sandbox: true,
     },
   });
+  mainWindow = window;
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = undefined;
+  });
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
@@ -138,12 +289,21 @@ app.whenReady().then(async () => {
 
   if (session.defaultSession.setDisplayMediaRequestHandler) {
     session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
-      const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] });
-      callback(sources[0] ? { video: sources[0] } : {});
-    }, { useSystemPicker: true });
+      try {
+        const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+        const selection = await chooseDisplaySource(parent);
+        callback(selection
+          ? { video: selection.source, ...(selection.withAudio ? { audio: 'loopback' } : {}) }
+          : {});
+      } catch (error) {
+        console.error('[capture] Não foi possível abrir o seletor:', error);
+        callback({});
+      }
+    });
   }
 
   await createWindow();
+  setupAutoUpdates();
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) await createWindow();

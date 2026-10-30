@@ -13,6 +13,8 @@ import { MAX_PARTICIPANTS, useRoom } from '../hooks/useRoom';
 /** Igual à duração da animação .tile-wrap--leaving (var(--dur)). */
 const TILE_EXIT_MS = 220;
 
+type StageFocus = { kind: 'screen' | 'participant'; id: string };
+
 interface Props {
   code: string;
   name: string;
@@ -41,7 +43,7 @@ export function Room({ code, name, onLeave }: Props) {
   const musicPlaying = useSyncExternalStore(room.music.subscribe, () => room.music.getState().playing);
   const [chatOpen, setChatOpen] = useState(true);
   const [unread, setUnread] = useState(0);
-  const [focusId, setFocusId] = useState<string | null>(null);
+  const [stageFocus, setStageFocus] = useState<StageFocus | null>(null);
   const [copiedLink, copyLink] = useCopy();
   const [copiedCode, copyCode] = useCopy();
   const seenMessages = useRef(0);
@@ -78,17 +80,26 @@ export function Room({ code, name, onLeave }: Props) {
   }
 
   const sharers = room.participants.filter((p) => p.screenStream);
-  const focused = sharers.find((p) => p.id === focusId) ?? sharers.find((p) => !p.isSelf) ?? sharers[0] ?? null;
+  const focusedParticipant = stageFocus?.kind === 'participant'
+    ? room.participants.find((p) => p.id === stageFocus.id && p.cameraStream) ?? null
+    : null;
+  const focusedScreen = focusedParticipant
+    ? null
+    : (stageFocus?.kind === 'screen' ? sharers.find((p) => p.id === stageFocus.id) : null)
+      ?? sharers.find((p) => !p.isSelf)
+      ?? sharers[0]
+      ?? null;
   const publicAppUrl =
     (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.replace(/\/+$/, '') ||
     'https://disc-call.vercel.app';
   const link = `${publicAppUrl}/${code}`;
+  const isDesktopApp = import.meta.env.MODE === 'desktop';
 
   return (
     <div className="room">
       <header className="room__header">
         <div className="brand brand--small">
-          <img src="/favicon.svg" alt="" width={26} height={26} />
+          <img src="/favicon.png" alt="" width={26} height={26} />
           <span>Discord 2.0</span>
         </div>
         <ThemePicker compact />
@@ -119,22 +130,37 @@ export function Room({ code, name, onLeave }: Props) {
 
       <div className="room__body">
         <main className="room__main">
-          {focused ? (
+          {focusedScreen || focusedParticipant ? (
             <>
               <div className="stage">
-                <ScreenView participant={focused} focused />
+                {focusedParticipant ? (
+                  <ParticipantTile participant={focusedParticipant} featured />
+                ) : focusedScreen ? (
+                  <ScreenView participant={focusedScreen} focused />
+                ) : null}
               </div>
               <div className="strip">
                 {sharers
-                  .filter((p) => p.id !== focused.id)
+                  .filter((p) => p.id !== focusedScreen?.id)
                   .map((p) => (
-                    <ScreenView key={`screen-${p.id}`} participant={p} focused={false} onFocus={() => setFocusId(p.id)} />
+                    <ScreenView
+                      key={`screen-${p.id}`}
+                      participant={p}
+                      focused={false}
+                      onFocus={() => setStageFocus({ kind: 'screen', id: p.id })}
+                    />
                   ))}
-                {tiles.map(({ item: p, leaving }) => (
-                  <div key={p.id} className={`tile-wrap${leaving ? ' tile-wrap--leaving' : ''}`} aria-hidden={leaving || undefined}>
-                    <ParticipantTile participant={p} compact />
-                  </div>
-                ))}
+                {tiles
+                  .filter(({ item: p }) => p.id !== focusedParticipant?.id)
+                  .map(({ item: p, leaving }) => (
+                    <div key={p.id} className={`tile-wrap${leaving ? ' tile-wrap--leaving' : ''}`} aria-hidden={leaving || undefined}>
+                      <ParticipantTile
+                        participant={p}
+                        compact
+                        onSelect={p.cameraStream ? () => setStageFocus({ kind: 'participant', id: p.id }) : undefined}
+                      />
+                    </div>
+                  ))}
               </div>
             </>
           ) : (
@@ -177,8 +203,11 @@ export function Room({ code, name, onLeave }: Props) {
           )}
           {room.sharing && !room.shareHasAudio && (
             <p className="share-hint">
-              Sua tela está sem áudio. No Chrome/Edge, marque “Compartilhar áudio do sistema” (tela inteira) ou
-              “Compartilhar áudio da guia” ao escolher o que compartilhar.
+              {isDesktopApp ? (
+                <>Sua tela está sem áudio. Pare a transmissão e ative “Compartilhar áudio do sistema” no seletor antes de escolher a janela ou tela.</>
+              ) : (
+                <>Sua tela está sem áudio. No Chrome/Edge, marque “Compartilhar áudio do sistema” (tela inteira) ou “Compartilhar áudio da guia” ao escolher o que compartilhar.</>
+              )}
             </p>
           )}
 

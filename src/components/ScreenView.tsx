@@ -39,7 +39,7 @@ export function ScreenView({ participant, focused, onFocus }: Props) {
   const [panelOpen, setPanelOpen] = useState(false);
   const stream = participant.screenStream;
   const hasAudio = useHasAudio(stream);
-  const canAdjust = focused && !participant.isSelf;
+  const canAdjust = !participant.isSelf;
 
   useEffect(() => {
     if (!focused) setPanelOpen(false);
@@ -96,7 +96,7 @@ export function ScreenView({ participant, focused, onFocus }: Props) {
         <span className="screen__who">
           <Icon name="screen" size={16} /> {participant.isSelf ? 'Sua tela' : `Tela de ${participant.name}`}
         </span>
-        {focused && (
+        {(focused || (canAdjust && hasAudio)) && (
           <span className="screen__actions">
             {canAdjust &&
               (hasAudio ? (
@@ -111,9 +111,11 @@ export function ScreenView({ participant, focused, onFocus }: Props) {
                   <Icon name="volumeOff" size={16} /> Sem áudio
                 </span>
               ))}
-            <button className="icon-btn" onClick={fullscreen} title="Tela cheia" aria-label="Tela cheia">
-              <Icon name="expand" />
-            </button>
+            {focused && (
+              <button className="icon-btn" onClick={fullscreen} title="Tela cheia" aria-label="Tela cheia">
+                <Icon name="expand" />
+              </button>
+            )}
           </span>
         )}
       </div>
