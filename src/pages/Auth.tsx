@@ -1,11 +1,7 @@
-import { lazy, Suspense, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { supabase, supabaseConfigured } from '../lib/supabase';
-import { useTheme } from '../lib/theme';
-
-const HomeScene = lazy(() => import('../components/HomeScene').catch(() => ({ default: () => null })));
 
 export function AuthPage() {
-  const { theme } = useTheme();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -50,12 +46,13 @@ export function AuthPage() {
   };
 
   return (
-    <main className={`home${theme === 'default' ? '' : ' home--themed'}`}>
-      {theme === 'default' && <Suspense fallback={null}><HomeScene /></Suspense>}
-      <p className="home__wordmark">Discord<br />2.0</p>
-      <section className="home__card auth-panel">
-        <h1 className="home__title">{mode === 'login' ? 'Boas-vindas de volta.' : 'Crie seu perfil.'}</h1>
-        <p className="home__lead">{mode === 'login' ? 'Entre para encontrar seus amigos e continuar a resenha.' : 'Escolha como seus amigos vão encontrar você.'}</p>
+    <main className="auth-page">
+      <section className="auth-hero">
+        <p className="home__wordmark">Discord<br />2.0</p>
+        <div><span className="eyebrow">Seu espaço, sua galera</span><h1>Converse, jogue e fique perto.</h1><p>Chamadas, mensagens e amigos reunidos em um só lugar.</p></div>
+      </section>
+      <section className="auth-card">
+        <div className="auth-card__head"><img src="/favicon.png" alt="" /><div><h2>{mode === 'login' ? 'Boas-vindas de volta' : 'Crie seu perfil'}</h2><p>{mode === 'login' ? 'Entre para encontrar seus amigos.' : 'Seu nome de usuário será único.'}</p></div></div>
         {!supabaseConfigured && <p className="notice notice--error">Configure o Supabase para usar contas.</p>}
         <form onSubmit={submit} className="auth-form">
           {mode === 'signup' && <><label className="field"><span className="field__label">Nome de usuário</span><input className="input" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="seu_usuario" maxLength={24} autoComplete="username" required /></label><label className="field"><span className="field__label">Nome de exibição</span><input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Como seus amigos te chamam" maxLength={32} required /></label></>}
@@ -64,8 +61,7 @@ export function AuthPage() {
           {error && <p className="notice notice--error">{error}</p>}{notice && <p className="notice notice--success">{notice}</p>}
           <button className="btn btn--primary btn--block" disabled={busy || !supabaseConfigured}>{busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}</button>
         </form>
-        <div className="divider"><span>{mode === 'login' ? 'primeira vez por aqui?' : 'já tem uma conta?'}</span></div>
-        <button className="btn btn--block" type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setNotice(''); }}>{mode === 'login' ? 'Criar uma conta' : 'Voltar para o login'}</button>
+        <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setNotice(''); }}>{mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tem uma conta? Entrar'}</button>
       </section>
     </main>
   );

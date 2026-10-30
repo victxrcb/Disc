@@ -64,7 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     loading,
     refreshProfile: () => loadProfile(session?.user ?? null),
-    signOut: async () => { await supabase?.auth.signOut(); },
+    // Encerra somente a sessão deste aplicativo; outras instalações continuam conectadas.
+    signOut: async () => { await supabase?.auth.signOut({ scope: 'local' }); },
   }), [session, profile, loading]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

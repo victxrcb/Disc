@@ -5,7 +5,7 @@ import { THEME_OPTIONS, useTheme, type AppTheme } from '../lib/theme';
 import { Avatar } from './Avatar';
 
 export function ProfileEditor() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [username, setUsername] = useState(profile?.username ?? '');
@@ -42,7 +42,13 @@ export function ProfileEditor() {
   };
   const chooseTheme = async (next: AppTheme) => {
     setTheme(next);
-    await supabase?.from('profiles').update({ theme: next }).eq('id', user.id);
+    setMessage('');
+    const { error } = await supabase!.from('profiles').update({ theme: next }).eq('id', user.id);
+    if (error) {
+      setMessage(`O tema foi aplicado neste dispositivo, mas não foi salvo na conta: ${error.message}`);
+      return;
+    }
+    setMessage('Tema atualizado.');
     await refreshProfile();
   };
   return <div className="profile-editor">
@@ -51,6 +57,10 @@ export function ProfileEditor() {
       <div className="profile-form__grid"><label className="field"><span className="field__label">Nome de exibição</span><input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={32} required /></label><label className="field"><span className="field__label">Nome de usuário</span><input className="input" value={username} onChange={(e) => setUsername(e.target.value)} maxLength={24} required /></label></div>
       <div className="profile-theme"><span className="field__label">Personalização do app</span><div className="profile-theme__options">{THEME_OPTIONS.map((option) => <button key={option.id} type="button" className={`profile-theme__card profile-theme__card--${option.id}${theme === option.id ? ' is-active' : ''}`} onClick={() => void chooseTheme(option.id)}><span className="profile-theme__preview" /><strong>{option.label}</strong><small>{option.description}</small></button>)}</div></div>
       {message && <p className={`notice ${message.includes('atualizad') ? 'notice--success' : 'notice--warn'}`}>{message}</p>}<button className="btn btn--primary" disabled={busy}>{busy ? 'Salvando…' : 'Salvar perfil'}</button>
+      <section className="profile-session">
+        <div><strong>Sessão neste dispositivo</strong><span>Sua conta continuará conectada quando você fechar o aplicativo.</span></div>
+        <button className="btn btn--danger" type="button" disabled={busy} onClick={() => void signOut()}>Encerrar sessão</button>
+      </section>
     </form>
   </div>;
 }

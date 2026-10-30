@@ -21,6 +21,10 @@ const MIME_TYPES = {
 
 let localServer;
 let mainWindow;
+const LOCAL_PORT = 47832;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) app.quit();
 
 function showAppDialog(options) {
   return mainWindow && !mainWindow.isDestroyed()
@@ -235,7 +239,7 @@ async function startLocalServer() {
 
   return new Promise((resolve, reject) => {
     localServer.once('error', reject);
-    localServer.listen(0, '127.0.0.1', () => {
+    localServer.listen(LOCAL_PORT, '127.0.0.1', () => {
       const address = localServer.address();
       resolve(`http://127.0.0.1:${address.port}`);
     });
@@ -278,7 +282,13 @@ async function createWindow() {
   await window.loadURL(appUrl);
 }
 
-app.whenReady().then(async () => {
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
+
+if (hasSingleInstanceLock) app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
     return isTrustedOrigin(requestingOrigin) && (permission === 'media' || permission === 'display-capture');
   });
