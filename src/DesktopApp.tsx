@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { isValidRoomCode, normalizeRoomCode } from './lib/roomCode';
-import { loadString, saveString } from './lib/storage';
-import { Home } from './pages/Home';
 import { Room } from './pages/Room';
 import { ThemeProvider } from './lib/theme';
+import { AuthProvider, useAuth } from './lib/auth';
+import { AuthPage } from './pages/Auth';
+import { Dashboard } from './pages/Dashboard';
+import { useTheme } from './lib/theme';
 
-const NAME_KEY = 'resenha:name';
-
-type Route = { page: 'home'; code: string } | { page: 'room'; code: string; name: string };
+type Route = { page: 'home'; code: string } | { page: 'room'; code: string };
 
 function codeFromPath(): string {
   const code = normalizeRoomCode(window.location.pathname.slice(1));
@@ -15,7 +15,8 @@ function codeFromPath(): string {
 }
 
 function DesktopRoutes() {
-  // A tela inicial preserva o gesto que libera microfone e reproducao de audio.
+  const { user, profile, loading, signOut } = useAuth();
+  const { setTheme } = useTheme();
   const [route, setRoute] = useState<Route>(() => ({ page: 'home', code: codeFromPath() }));
 
   useEffect(() => {
@@ -24,12 +25,21 @@ function DesktopRoutes() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  if (route.page === 'room') {
+  useEffect(() => {
+    if (profile?.theme) setTheme(profile.theme);
+  }, [profile?.theme]);
+
+  if (loading) return <main className="app-loading"><div className="spinner" /><p>Carregando…</p></main>;
+  if (!user) return <AuthPage />;
+  if (!profile) return <main className="app-loading"><p>Não foi possível carregar seu perfil. Aplique a migração do Supabase e entre novamente.</p><button className="btn" onClick={() => void signOut()}>Sair</button></main>;
+
+  if (route.page === 'room' && profile) {
     return (
       <Room
         key={route.code}
         code={route.code}
-        name={route.name}
+        name={profile.display_name}
+        avatarUrl={profile.avatar_url}
         onLeave={() => {
           window.history.pushState(null, '', '/');
           setRoute({ page: 'home', code: '' });
@@ -39,14 +49,11 @@ function DesktopRoutes() {
   }
 
   return (
-    <Home
-      key={route.code}
+    <Dashboard
       initialCode={route.code}
-      initialName={loadString(NAME_KEY)}
-      onJoin={(code, name) => {
-        saveString(NAME_KEY, name);
+      onJoin={(code) => {
         if (window.location.pathname !== `/${code}`) window.history.pushState(null, '', `/${code}`);
-        setRoute({ page: 'room', code, name });
+        setRoute({ page: 'room', code });
       }}
     />
   );
@@ -55,7 +62,7 @@ function DesktopRoutes() {
 export default function DesktopApp() {
   return (
     <ThemeProvider>
-      <DesktopRoutes />
+      <AuthProvider><DesktopRoutes /></AuthProvider>
     </ThemeProvider>
   );
 }

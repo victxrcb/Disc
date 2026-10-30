@@ -6,9 +6,10 @@ import { MusicPanel } from '../components/MusicPanel';
 import { ParticipantTile } from '../components/ParticipantTile';
 import { ScreenView } from '../components/ScreenView';
 import { SoundToast } from '../components/SoundToast';
-import { ThemePicker } from '../components/ThemePicker';
+import { Avatar } from '../components/Avatar';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { MAX_PARTICIPANTS, useRoom } from '../hooks/useRoom';
+import { useSocial } from '../hooks/useSocial';
 
 /** Igual à duração da animação .tile-wrap--leaving (var(--dur)). */
 const TILE_EXIT_MS = 220;
@@ -18,6 +19,7 @@ type StageFocus = { kind: 'screen' | 'participant'; id: string };
 interface Props {
   code: string;
   name: string;
+  avatarUrl: string | null;
   onLeave(): void;
 }
 
@@ -38,8 +40,11 @@ function useCopy(): [boolean, (text: string) => void] {
   return [copied, copy];
 }
 
-export function Room({ code, name, onLeave }: Props) {
-  const room = useRoom(code, name);
+export function Room({ code, name, avatarUrl, onLeave }: Props) {
+  const room = useRoom(code, name, avatarUrl);
+  const social = useSocial();
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [invited, setInvited] = useState<string[]>([]);
   const musicPlaying = useSyncExternalStore(room.music.subscribe, () => room.music.getState().playing);
   const [chatOpen, setChatOpen] = useState(true);
   const [unread, setUnread] = useState(0);
@@ -102,7 +107,10 @@ export function Room({ code, name, onLeave }: Props) {
           <img src="/favicon.png" alt="" width={26} height={26} />
           <span>Discord 2.0</span>
         </div>
-        <ThemePicker compact />
+        <div className="room-invite">
+          <button className="btn btn--small" onClick={() => setInviteOpen((open) => !open)}><Icon name="users" size={16} /> Convidar amigos</button>
+          {inviteOpen && <div className="room-invite__menu"><strong>Convidar para a chamada</strong>{social.friends.length === 0 ? <p>Adicione amigos para convidá-los por aqui.</p> : social.friends.map((friend) => <div key={friend.id}><Avatar profile={friend.person} size="sm" /><span>{friend.person.display_name}</span><button className="btn btn--small" disabled={invited.includes(friend.person.id)} onClick={() => { void social.inviteToCall(friend.person.id, code); setInvited((list) => [...list, friend.person.id]); }}>{invited.includes(friend.person.id) ? 'Enviado' : 'Convidar'}</button></div>)}</div>}
+        </div>
         <div className="room__code">
           <button className="code-chip" onClick={() => copyCode(code)} title="Copiar código">
             <span className="code-chip__value">{code}</span>

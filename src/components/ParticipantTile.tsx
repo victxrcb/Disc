@@ -125,9 +125,9 @@ export function ParticipantTile({ participant, compact = false, featured = false
         <MediaElement kind="video" stream={participant.cameraStream} muted
           className={`tile__camera${isSelf ? ' tile__camera--self' : ''}`} />
       ) : (
-        <div className="tile__avatar" style={{ ['--h' as string]: hue(id) }}>
-          {name.trim().charAt(0).toUpperCase() || '?'}
-        </div>
+        participant.avatarUrl
+          ? <img className="tile__avatar tile__avatar--image" src={participant.avatarUrl} alt="" />
+          : <div className="tile__avatar" style={{ ['--h' as string]: hue(id) }}>{name.trim().charAt(0).toUpperCase() || '?'}</div>
       )}
       <div className="tile__name">
         <span className="tile__label">{name}{isSelf && ' (você)'}</span>

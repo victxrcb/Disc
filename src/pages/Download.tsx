@@ -59,12 +59,12 @@ export function Download() {
           <Icon name="download" size={20} />
           Baixar para Windows
         </a>
-        <p className="download-card__meta">Windows 10/11 · 64 bits · Versão 0.3.0</p>
+        <p className="download-card__meta">Windows 10/11 · 64 bits · Versão 0.4.0</p>
 
         <div className="download-features" aria-label="Recursos do aplicativo">
-          <span><Icon name="mic" size={16} /> Voz sem cadastro</span>
+          <span><Icon name="users" size={16} /> Perfis e amigos</span>
           <span><Icon name="camera" size={16} /> Câmera e tela</span>
-          <span><Icon name="music" size={16} /> Música e soundpad</span>
+          <span><Icon name="chat" size={16} /> Chat e convites</span>
         </div>
 
         <a className="download-card__releases" href={RELEASES_URL}>

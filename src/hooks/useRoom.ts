@@ -129,7 +129,7 @@ async function excludeOwnAudio(audio: MediaStreamTrack, video: MediaStreamTrack 
   return 'Seu navegador vai enviar o som da chamada junto com o áudio da tela, e os outros vão ouvir a própria voz de volta. Use fone de ouvido ou compartilhe uma aba em vez da tela inteira.';
 }
 
-export function useRoom(roomCode: string, name: string): RoomState {
+export function useRoom(roomCode: string, name: string, avatarUrl: string | null = null): RoomState {
   const selfId = useMemo(() => crypto.randomUUID(), [roomCode]);
 
   const [status, setStatus] = useState<RoomStatus>('joining');
@@ -370,7 +370,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
 
       signaling = new Signaling(
         roomCode,
-        { id: selfId, name, joinedAt: Date.now(), muted: false, screenStreamId: null },
+        { id: selfId, name, avatarUrl, joinedAt: Date.now(), muted: false, screenStreamId: null },
         {
           onPresence: (list) => {
             if (disposed || !peers) return;
@@ -622,7 +622,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
   const participants = useMemo<Participant[]>(() => {
     const list = presence.some((p) => p.id === selfId)
       ? presence
-      : [...presence, { id: selfId, name, joinedAt: Date.now(), muted, screenStreamId: screenStream?.id ?? null }];
+      : [...presence, { id: selfId, name, avatarUrl, joinedAt: Date.now(), muted, screenStreamId: screenStream?.id ?? null }];
 
     return [...list]
       .sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id))
@@ -652,7 +652,7 @@ export function useRoom(roomCode: string, name: string): RoomState {
           screenStream: screen && screen.getVideoTracks().length > 0 ? screen : null,
         };
       });
-  }, [presence, selfId, name, muted, micStream, screenStream, cameraStream, remoteStreams, connStates]);
+  }, [presence, selfId, name, avatarUrl, muted, micStream, screenStream, cameraStream, remoteStreams, connStates]);
 
   return {
     status,
