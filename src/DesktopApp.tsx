@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { AuthPage } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { useTheme } from './lib/theme';
+import { UpdateCenter } from './components/UpdateCenter';
 
 type Route = { page: 'home'; code: string } | { page: 'room'; code: string };
 
@@ -63,6 +64,7 @@ export default function DesktopApp() {
   return (
     <ThemeProvider>
       <AuthProvider><DesktopRoutes /></AuthProvider>
+      <UpdateCenter />
     </ThemeProvider>
   );
 }

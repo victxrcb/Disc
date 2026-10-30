@@ -1,4 +1,4 @@
-const { app, BrowserWindow, desktopCapturer, dialog, Notification, session, shell } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { createReadStream, promises: fs } = require('node:fs');
 const { createServer } = require('node:http');
@@ -26,13 +26,24 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) app.quit();
 
-function showAppDialog(options) {
-  return mainWindow && !mainWindow.isDestroyed()
-    ? dialog.showMessageBox(mainWindow, options)
-    : dialog.showMessageBox(options);
+/** Último estado conhecido da atualização, para a interface recuperar ao carregar. */
+let updateStatus = { state: 'idle' };
+
+function sendUpdateStatus(next) {
+  updateStatus = next;
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update:status', next);
 }
 
 function setupAutoUpdates() {
+  ipcMain.handle('update:get-status', () => updateStatus);
+  ipcMain.handle('update:install', () => {
+    if (updateStatus.state !== 'ready') return false;
+    sendUpdateStatus({ ...updateStatus, state: 'installing' });
+    // Dá tempo da tela de instalação aparecer; o instalador roda em silêncio e reabre o app.
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1200);
+    return true;
+  });
+
   // Em desenvolvimento não existe app-update.yml nem uma instalação NSIS para atualizar.
   if (!app.isPackaged) return;
 
@@ -40,37 +51,32 @@ function setupAutoUpdates() {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
-    const body = `A versão ${info.version} está sendo baixada em segundo plano.`;
-    if (Notification.isSupported()) {
-      new Notification({ title: 'Nova atualização disponível', body }).show();
-    } else {
-      void showAppDialog({
-        type: 'info',
-        title: 'Nova atualização disponível',
-        message: 'Uma nova versão está disponível',
-        detail: body,
-        buttons: ['Entendi'],
-      });
+    sendUpdateStatus({ state: 'downloading', version: info.version, percent: 0 });
+    // Com o app minimizado ou em segundo plano, avisa também pelo Windows.
+    if (Notification.isSupported() && !mainWindow?.isFocused()) {
+      new Notification({ title: 'Nova atualização disponível', body: `A versão ${info.version} está sendo baixada.` }).show();
     }
   });
 
-  autoUpdater.on('update-downloaded', async (info) => {
-    const { response } = await showAppDialog({
-      type: 'info',
-      title: 'Atualização pronta',
-      message: `A versão ${info.version} está pronta para instalar`,
-      detail: 'Reinicie agora para concluir. Se escolher “Depois”, a atualização será instalada quando o aplicativo for fechado.',
-      buttons: ['Reiniciar e atualizar', 'Depois'],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true,
+  autoUpdater.on('download-progress', (progress) => {
+    sendUpdateStatus({
+      state: 'downloading',
+      version: updateStatus.version,
+      percent: Math.round(progress.percent),
+      bytesPerSecond: progress.bytesPerSecond,
     });
-    if (response === 0) autoUpdater.quitAndInstall(false, true);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateStatus({ state: 'ready', version: info.version, percent: 100 });
   });
 
   autoUpdater.on('error', (error) => {
     // Falhas de rede não devem impedir o usuário de entrar no aplicativo.
     console.error('[update] Não foi possível verificar/instalar a atualização:', error);
+    if (updateStatus.state === 'downloading' || updateStatus.state === 'installing') {
+      sendUpdateStatus({ state: 'error', version: updateStatus.version });
+    }
   });
 
   const timer = setTimeout(() => {
@@ -260,6 +266,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
   mainWindow = window;
