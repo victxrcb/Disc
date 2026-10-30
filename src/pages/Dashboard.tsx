@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { Avatar, PresenceAvatar } from '../components/Avatar';
 import { DirectChat } from '../components/DirectChat';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -62,6 +62,7 @@ export function Dashboard({ initialCode, onJoin }: Props) {
     if (tab === 'messages' && chatId) markSeen(chatId);
   }, [tab, chatId, lastInChat, markSeen]);
 
+  const navIndex = (['calls', 'messages', 'friends'] as Tab[]).indexOf(tab);
   const openChat = (person: Profile) => { setChatWith(person); setTab('messages'); };
   const acceptFriend = (id: string) => {
     setAccepting(id);
@@ -86,7 +87,9 @@ export function Dashboard({ initialCode, onJoin }: Props) {
   return <div className="dashboard">
     <aside className="app-sidebar">
       <div className="brand"><img src="/favicon.png" alt="" /><span>Discord 2.0</span></div>
-      <nav>
+      <nav className="side-nav">
+        {/* Indicador único que desliza até o item ativo. */}
+        {navIndex >= 0 && <span className="side-nav__indicator" aria-hidden="true" style={{ '--nav-index': navIndex } as CSSProperties} />}
         <button className={tab === 'calls' ? 'is-active' : ''} onClick={() => setTab('calls')}><Icon name="camera" />Chamadas</button>
         <button className={tab === 'messages' ? 'is-active' : ''} onClick={() => setTab('messages')}><Icon name="chat" />Mensagens{inbox.unreadCount > 0 && <b>{inbox.unreadCount}</b>}</button>
         <button className={tab === 'friends' ? 'is-active' : ''} onClick={() => setTab('friends')}><Icon name="users" />Amigos{social.incoming.length > 0 && <b>{social.incoming.length}</b>}</button>
