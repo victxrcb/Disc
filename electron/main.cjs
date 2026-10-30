@@ -297,11 +297,11 @@ app.on('second-instance', () => {
 
 if (hasSingleInstanceLock) app.whenReady().then(async () => {
   session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
-    return isTrustedOrigin(requestingOrigin) && (permission === 'media' || permission === 'display-capture');
+    return isTrustedOrigin(requestingOrigin) && (permission === 'media' || permission === 'display-capture' || permission === 'fullscreen');
   });
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
     const trusted = isTrustedOrigin(webContents.getURL());
-    callback(trusted && (permission === 'media' || permission === 'display-capture'));
+    callback(trusted && (permission === 'media' || permission === 'display-capture' || permission === 'fullscreen'));
   });
 
   if (session.defaultSession.setDisplayMediaRequestHandler) {

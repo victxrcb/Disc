@@ -41,15 +41,23 @@ export function ScreenView({ participant, focused, onFocus }: Props) {
   const hasAudio = useHasAudio(stream);
   const canAdjust = !participant.isSelf;
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   useEffect(() => {
     if (!focused) setPanelOpen(false);
   }, [focused]);
 
+  useEffect(() => {
+    const sync = () => setIsFullscreen(document.fullscreenElement === wrapRef.current);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+
   const fullscreen = () => {
     const el = wrapRef.current;
     if (!el) return;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void el.requestFullscreen?.();
+    const request = document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.({ navigationUI: 'hide' });
+    void request?.catch((error: unknown) => console.warn('[tela cheia] Não foi possível alternar:', error));
   };
 
   const handleClick = () => {
@@ -88,6 +96,7 @@ export function ScreenView({ participant, focused, onFocus }: Props) {
           : `Ver tela de ${participant.name}`
       }
       onKeyDown={handleKeyDown}
+      onDoubleClick={focused ? fullscreen : undefined}
     >
       {/* O próprio compartilhamento fica mudo localmente para não gerar eco. */}
       <MediaElement kind="video" stream={stream} muted={participant.isSelf} volume={volume} className="screen__video" />
@@ -112,8 +121,8 @@ export function ScreenView({ participant, focused, onFocus }: Props) {
                 </span>
               ))}
             {focused && (
-              <button className="icon-btn" onClick={fullscreen} title="Tela cheia" aria-label="Tela cheia">
-                <Icon name="expand" />
+              <button className="icon-btn" onClick={fullscreen} title={isFullscreen ? 'Sair da tela cheia (Esc)' : 'Tela cheia'} aria-label={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}>
+                <Icon name={isFullscreen ? 'shrink' : 'expand'} />
               </button>
             )}
           </span>

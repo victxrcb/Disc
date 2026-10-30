@@ -31,42 +31,44 @@ export interface CallInvite {
 
 export function useSocial() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [friendships, setFriendships] = useState<Friendship[]>([]);
   const [invites, setInvites] = useState<CallInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
-    if (!supabase || !user) return;
+    if (!supabase || !userId) return;
     const [{ data: links, error: linksError }, { data: callRows }] = await Promise.all([
-      supabase.from('friendships').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).order('created_at'),
-      supabase.from('call_invites').select('*').eq('recipient_id', user.id).eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.from('friendships').select('*').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`).order('created_at'),
+      supabase.from('call_invites').select('*').eq('recipient_id', userId).eq('status', 'pending').order('created_at', { ascending: false }),
     ]);
     if (linksError) { setError('A área social ainda não está disponível. Aplique a migração do Supabase.'); setLoading(false); return; }
-    const ids = [...new Set((links ?? []).map((row) => row.requester_id === user.id ? row.addressee_id : row.requester_id))];
+    const ids = [...new Set((links ?? []).map((row) => row.requester_id === userId ? row.addressee_id : row.requester_id))];
     const senderIds = [...new Set((callRows ?? []).map((row) => row.sender_id as string))];
     const allIds = [...new Set([...ids, ...senderIds])];
     const { data: people } = allIds.length ? await supabase.from('profiles').select('id,username,display_name,avatar_url,banner_url,theme').in('id', allIds) : { data: [] };
     const byId = new Map((people ?? []).map((person) => [person.id, person as Profile]));
     setFriendships((links ?? []).flatMap((row) => {
-      const otherId = row.requester_id === user.id ? row.addressee_id : row.requester_id;
+      const otherId = row.requester_id === userId ? row.addressee_id : row.requester_id;
       const person = byId.get(otherId);
       return person ? [{ ...row, person } as Friendship] : [];
     }));
     setInvites((callRows ?? []).map((row) => ({ ...row, sender: byId.get(row.sender_id) } as CallInvite)));
     setError(''); setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     void refresh();
-    if (!supabase || !user) return;
+    if (!supabase || !userId) return;
     const client = supabase;
-    const channel = client.channel(`social:${user.id}`)
+    // Tópico único por montagem: reaproveitar um canal já inscrito faz o Realtime lançar erro.
+    const channel = client.channel(`social:${userId}:${crypto.randomUUID()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'friendships' }, () => void refresh())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'call_invites' }, () => void refresh())
       .subscribe();
     return () => { void client.removeChannel(channel); };
-  }, [user, refresh]);
+  }, [userId, refresh]);
 
   const friends = useMemo(() => friendships.filter((item) => item.status === 'accepted'), [friendships]);
   const incoming = useMemo(() => friendships.filter((item) => item.status === 'pending' && item.addressee_id === user?.id), [friendships, user]);

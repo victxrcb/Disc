@@ -7,6 +7,8 @@ import { AuthPage } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { useTheme } from './lib/theme';
 import { UpdateCenter } from './components/UpdateCenter';
+import { PresenceProvider } from './lib/presence';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type Route = { page: 'home'; code: string } | { page: 'room'; code: string };
 
@@ -63,7 +65,7 @@ function DesktopRoutes() {
 export default function DesktopApp() {
   return (
     <ThemeProvider>
-      <AuthProvider><DesktopRoutes /></AuthProvider>
+      <AuthProvider><PresenceProvider><ErrorBoundary area="o app"><DesktopRoutes /></ErrorBoundary></PresenceProvider></AuthProvider>
       <UpdateCenter />
     </ThemeProvider>
   );

@@ -24,6 +24,7 @@ const PATHS = {
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   volumeOff:'M4 9h4l5-4v14l-5-4H4zM16 9.5l5 5M21 9.5l-5 5',
   expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  shrink: 'M9 4v5H4M15 4v5h5M4 15h5v5M20 15h-5v5',
   close: 'M6 6l12 12M18 6L6 18',
   send: 'M4 12l16-8-6 16-2-6z',
   alert: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',

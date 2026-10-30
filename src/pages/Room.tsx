@@ -6,7 +6,8 @@ import { MusicPanel } from '../components/MusicPanel';
 import { ParticipantTile } from '../components/ParticipantTile';
 import { ScreenView } from '../components/ScreenView';
 import { SoundToast } from '../components/SoundToast';
-import { Avatar } from '../components/Avatar';
+import { PresenceAvatar } from '../components/Avatar';
+import { useOnlineUsers } from '../lib/presence';
 import { useExitTransition } from '../hooks/useExitTransition';
 import { MAX_PARTICIPANTS, useRoom } from '../hooks/useRoom';
 import { useSocial } from '../hooks/useSocial';
@@ -43,6 +44,9 @@ function useCopy(): [boolean, (text: string) => void] {
 export function Room({ code, name, avatarUrl, onLeave }: Props) {
   const room = useRoom(code, name, avatarUrl);
   const social = useSocial();
+  const online = useOnlineUsers();
+  const onlineFriends = social.friends.filter((friend) => online.has(friend.person.id));
+  const offlineFriends = social.friends.filter((friend) => !online.has(friend.person.id));
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invited, setInvited] = useState<string[]>([]);
   const musicPlaying = useSyncExternalStore(room.music.subscribe, () => room.music.getState().playing);
@@ -108,8 +112,15 @@ export function Room({ code, name, avatarUrl, onLeave }: Props) {
           <span>Discord 2.0</span>
         </div>
         <div className="room-invite">
-          <button className="btn btn--small" onClick={() => setInviteOpen((open) => !open)}><Icon name="users" size={16} /> Convidar amigos</button>
-          {inviteOpen && <div className="room-invite__menu"><strong>Convidar para a chamada</strong>{social.friends.length === 0 ? <p>Adicione amigos para convidá-los por aqui.</p> : social.friends.map((friend) => <div key={friend.id}><Avatar profile={friend.person} size="sm" /><span>{friend.person.display_name}</span><button className="btn btn--small" disabled={invited.includes(friend.person.id)} onClick={() => { void social.inviteToCall(friend.person.id, code); setInvited((list) => [...list, friend.person.id]); }}>{invited.includes(friend.person.id) ? 'Enviado' : 'Convidar'}</button></div>)}</div>}
+          <button className="btn btn--small" onClick={() => setInviteOpen((open) => !open)} aria-expanded={inviteOpen}><Icon name="users" size={16} /> Amigos{onlineFriends.length > 0 && <span className="room-invite__count">{onlineFriends.length} online</span>}</button>
+          {inviteOpen && <div className="room-invite__menu">
+            <div className="room-invite__head"><strong>Amigos</strong><button className="icon-btn" onClick={() => setInviteOpen(false)} aria-label="Fechar"><Icon name="close" size={16} /></button></div>
+            {social.friends.length === 0 && <p>Adicione amigos para convidá-los por aqui.</p>}
+            {[{ label: 'Online', list: onlineFriends }, { label: 'Offline', list: offlineFriends }].map((group) => group.list.length > 0 && <section key={group.label}>
+              <h3>{group.label} — {group.list.length}</h3>
+              {group.list.map((friend) => <div key={friend.id} className="room-invite__row"><PresenceAvatar profile={friend.person} size="sm" online={group.label === 'Online'} /><span><strong>{friend.person.display_name}</strong><small>@{friend.person.username}</small></span><button className="btn btn--small" disabled={invited.includes(friend.person.id)} onClick={() => { void social.inviteToCall(friend.person.id, code); setInvited((list) => [...list, friend.person.id]); }}>{invited.includes(friend.person.id) ? 'Enviado' : 'Convidar'}</button></div>)}
+            </section>)}
+          </div>}
         </div>
         <div className="room__code">
           <button className="code-chip" onClick={() => copyCode(code)} title="Copiar código">
