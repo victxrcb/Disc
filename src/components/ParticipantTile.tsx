@@ -1,7 +1,9 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import type { Participant } from '../hooks/useRoom';
 import { useSpeaking } from '../hooks/useSpeaking';
+import type { Badge } from '../lib/workouts';
 import { Icon } from './Icon';
+import { RankBadge } from './RankBadge';
 import { MediaElement } from './MediaElement';
 import { usePeerVolume, VolumeControl } from './VolumeControl';
 import { VolumePopover } from './VolumePopover';
@@ -26,10 +28,11 @@ interface Props {
   participant: Participant;
   compact?: boolean;
   featured?: boolean;
+  badge?: Badge | null;
   onSelect?: () => void;
 }
 
-export function ParticipantTile({ participant, compact = false, featured = false, onSelect }: Props) {
+export function ParticipantTile({ participant, compact = false, featured = false, badge = null, onSelect }: Props) {
   const { name, isSelf, muted, micStream, connection, id } = participant;
   const speaking = useSpeaking(micStream, !muted);
   const [volume, setVolume] = usePeerVolume(name);
@@ -129,8 +132,10 @@ export function ParticipantTile({ participant, compact = false, featured = false
           ? <img className="tile__avatar tile__avatar--image" src={participant.avatarUrl} alt="" />
           : <div className="tile__avatar" style={{ ['--h' as string]: hue(id) }}>{name.trim().charAt(0).toUpperCase() || '?'}</div>
       )}
+      {isSelf && <span className="tile__you">Você</span>}
       <div className="tile__name">
-        <span className="tile__label">{name}{isSelf && ' (você)'}</span>
+        <span className="tile__label">{name}</span>
+        <RankBadge badge={badge} size="sm" />
         {muted && (
           <span className="tile__muted" title="Microfone desligado">
             <Icon name="micOff" size={16} />

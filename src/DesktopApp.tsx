@@ -43,6 +43,7 @@ function DesktopRoutes() {
         code={route.code}
         name={profile.display_name}
         avatarUrl={profile.avatar_url}
+        userId={profile.id}
         onLeave={() => {
           window.history.pushState(null, '', '/');
           setRoute({ page: 'home', code: '' });

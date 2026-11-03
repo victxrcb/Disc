@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase';
 import { THEME_OPTIONS, useTheme, type AppTheme } from '../lib/theme';
 import { Avatar } from './Avatar';
 import { Icon } from './Icon';
+import { RankBadge } from './RankBadge';
+import type { Badge } from '../lib/workouts';
 
-export function ProfileEditor() {
+export function ProfileEditor({ badge = null }: { badge?: Badge | null }) {
   const { user, profile, refreshProfile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
@@ -92,7 +94,7 @@ export function ProfileEditor() {
       <button type="button" className="profile-editor__avatar" onClick={() => avatarFileRef.current?.click()} disabled={busy} title="Trocar foto" aria-label="Trocar foto">
         <Avatar profile={profile} size="lg" /><span className="profile-editor__avatar-edit"><Icon name="camera" size={16} /></span>
       </button>
-      <div className="profile-editor__name"><strong>{profile.display_name}</strong><span>@{profile.username}</span></div>
+      <div className="profile-editor__name"><div className="profile-editor__title"><strong>{profile.display_name}</strong><RankBadge badge={badge} /></div><span>@{profile.username}</span></div>
       <button type="button" className="btn btn--small" onClick={() => avatarFileRef.current?.click()} disabled={busy}><Icon name="upload" size={16} />Trocar foto</button>
       <input ref={avatarFileRef} hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={uploadAvatar} />
     </div>

@@ -4,13 +4,16 @@ import { DirectChat } from '../components/DirectChat';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Icon } from '../components/Icon';
 import { ProfileEditor } from '../components/ProfileEditor';
+import { RankBadge } from '../components/RankBadge';
+import { Workouts } from './Workouts';
 import { useAuth, type Profile } from '../lib/auth';
 import { generateRoomCode, isValidRoomCode, normalizeRoomCode, CODE_LENGTH } from '../lib/roomCode';
 import { useSocial } from '../hooks/useSocial';
 import { useConversations } from '../hooks/useConversations';
+import { useProfileBadges } from '../hooks/useWorkoutGroups';
 import { useOnlineUsers } from '../lib/presence';
 
-type Tab = 'calls' | 'messages' | 'friends' | 'profile';
+type Tab = 'calls' | 'messages' | 'friends' | 'workouts' | 'profile';
 interface Props { initialCode: string; onJoin(code: string): void; }
 
 function greeting(): string {
@@ -33,6 +36,8 @@ export function Dashboard({ initialCode, onJoin }: Props) {
   const online = useOnlineUsers();
   const inbox = useConversations();
   const [tab, setTab] = useState<Tab>('calls');
+  // Selos mudam conforme os treinos; rebusca ao trocar de tela.
+  const badges = useProfileBadges([...(profile ? [profile.id] : []), ...social.friends.map((item) => item.person.id)], tab);
   const [code, setCode] = useState(initialCode);
   const [friendName, setFriendName] = useState('');
   const [friendNotice, setFriendNotice] = useState('');
@@ -62,7 +67,7 @@ export function Dashboard({ initialCode, onJoin }: Props) {
     if (tab === 'messages' && chatId) markSeen(chatId);
   }, [tab, chatId, lastInChat, markSeen]);
 
-  const navIndex = (['calls', 'messages', 'friends'] as Tab[]).indexOf(tab);
+  const navIndex = (['calls', 'messages', 'friends', 'workouts'] as Tab[]).indexOf(tab);
   const openChat = (person: Profile) => { setChatWith(person); setTab('messages'); };
   const acceptFriend = (id: string) => {
     setAccepting(id);
@@ -93,11 +98,12 @@ export function Dashboard({ initialCode, onJoin }: Props) {
         <button className={tab === 'calls' ? 'is-active' : ''} onClick={() => setTab('calls')}><Icon name="camera" />Chamadas</button>
         <button className={tab === 'messages' ? 'is-active' : ''} onClick={() => setTab('messages')}><Icon name="chat" />Mensagens{inbox.unreadCount > 0 && <b>{inbox.unreadCount}</b>}</button>
         <button className={tab === 'friends' ? 'is-active' : ''} onClick={() => setTab('friends')}><Icon name="users" />Amigos{social.incoming.length > 0 && <b>{social.incoming.length}</b>}</button>
+        <button className={tab === 'workouts' ? 'is-active' : ''} onClick={() => setTab('workouts')}><Icon name="dumbbell" />Treinos</button>
       </nav>
       <div className={`sidebar-user${tab === 'profile' ? ' is-active' : ''}`}>
         <button className="sidebar-user__profile" onClick={() => setTab('profile')} title="Abrir seu perfil" aria-current={tab === 'profile' ? 'page' : undefined}>
           <Avatar profile={profile} size="sm" />
-          <span className="sidebar-user__info"><strong>{profile.display_name}</strong><span>@{profile.username}</span></span>
+          <span className="sidebar-user__info"><strong>{profile.display_name}</strong><span>@{profile.username}</span><RankBadge badge={badges.get(profile.id)} size="sm" /></span>
         </button>
         <button className="icon-btn" onClick={() => void signOut()} title="Sair" aria-label="Sair"><Icon name="leave" /></button>
       </div>
@@ -124,7 +130,7 @@ export function Dashboard({ initialCode, onJoin }: Props) {
         </section>
         <section className="friends-quick">
           <div className="dash-section"><h2>Amigos{friendCount > 0 && <span>{friendCount}</span>}</h2><button className="link-btn" onClick={() => setTab('friends')}>Ver todos</button></div>
-          {friendCount > 0 && <div className="friend-grid">{friends.slice(0, 6).map((item) => <button key={item.id} className={`friend-card${freshFriends.has(item.id) ? ' is-new' : ''}`} onClick={() => openChat(item.person)}><PresenceAvatar profile={item.person} online={online.has(item.person.id)} /><strong>{item.person.display_name}</strong><span>{online.has(item.person.id) ? 'Online' : `@${item.person.username}`}</span></button>)}</div>}
+          {friendCount > 0 && <div className="friend-grid">{friends.slice(0, 6).map((item) => <button key={item.id} className={`friend-card${freshFriends.has(item.id) ? ' is-new' : ''}`} onClick={() => openChat(item.person)}><PresenceAvatar profile={item.person} online={online.has(item.person.id)} /><strong>{item.person.display_name}<RankBadge badge={badges.get(item.person.id)} size="sm" /></strong><span>{online.has(item.person.id) ? 'Online' : `@${item.person.username}`}</span></button>)}</div>}
           {!social.loading && friendCount === 0 && <div className="friends-empty">
             <span className="friends-empty__icon"><Icon name="users" /></span>
             <div><strong>Sua lista está vazia</strong><span>Adicione alguém pelo nome de usuário para conversar e chamar para as salas.</span></div>
@@ -135,7 +141,7 @@ export function Dashboard({ initialCode, onJoin }: Props) {
       {tab === 'friends' && <div className="friends-page"><div className="section-heading"><div><span className="eyebrow">Sua galera</span><h1>Amigos</h1></div></div><form className="add-friend" onSubmit={add}><div><strong>Adicionar amigo</strong><span>Você pode adicionar alguém pelo nome de usuário.</span></div><div><input value={friendName} onChange={(e) => setFriendName(e.target.value)} placeholder="nome_de_usuario" required /><button className="btn btn--primary">Enviar pedido</button></div>{friendNotice && <small>{friendNotice}</small>}</form>{social.error && <p className="notice notice--error">{social.error}</p>}
         {social.incoming.length > 0 && <section className="friend-list"><h2>Pedidos recebidos — {social.incoming.length}</h2>{social.incoming.map((item) => <article key={item.id} className={accepting === item.id ? 'is-accepting' : undefined}><Avatar profile={item.person} /><div><strong>{item.person.display_name}</strong><span>@{item.person.username} quer ser seu amigo</span></div><button className="icon-btn icon-btn--accept" onClick={() => acceptFriend(item.id)} disabled={accepting === item.id} title="Aceitar" aria-label={`Aceitar pedido de ${item.person.display_name}`}><Icon name="check" /></button><button className="icon-btn" onClick={() => void social.answerFriend(item.id, false)}><Icon name="close" /></button></article>)}</section>}
         {social.outgoing.length > 0 && <section className="friend-list"><h2>Pedidos enviados — {social.outgoing.length}</h2>{social.outgoing.map((item) => <article key={item.id}><Avatar profile={item.person} /><div><strong>{item.person.display_name}</strong><span>@{item.person.username} · aguardando resposta</span></div><span className="pending-pill">Pendente</span><button className="icon-btn" title="Cancelar pedido" aria-label={`Cancelar pedido para ${item.person.display_name}`} onClick={() => void social.removeFriend(item.id)}><Icon name="close" /></button></article>)}</section>}
-        <section className="friend-list"><h2>Todos os amigos — {friendCount}{onlineCount > 0 && ` · ${onlineCount} online`}</h2>{friends.map((item) => <article key={item.id} className={freshFriends.has(item.id) ? 'is-new' : undefined}><PresenceAvatar profile={item.person} online={online.has(item.person.id)} /><div><strong>{item.person.display_name}</strong><span>@{item.person.username} · {online.has(item.person.id) ? 'Online' : 'Offline'}</span></div><button className="btn btn--small" onClick={() => openChat(item.person)}><Icon name="chat" size={16} /> Mensagem</button><button className="icon-btn" title="Remover amizade" onClick={() => void social.removeFriend(item.id)}><Icon name="close" /></button></article>)}{social.friends.length === 0 && <div className="empty-state"><p>Nenhum amigo adicionado ainda.</p></div>}</section>
+        <section className="friend-list"><h2>Todos os amigos — {friendCount}{onlineCount > 0 && ` · ${onlineCount} online`}</h2>{friends.map((item) => <article key={item.id} className={freshFriends.has(item.id) ? 'is-new' : undefined}><PresenceAvatar profile={item.person} online={online.has(item.person.id)} /><div><strong>{item.person.display_name}<RankBadge badge={badges.get(item.person.id)} size="sm" /></strong><span>@{item.person.username} · {online.has(item.person.id) ? 'Online' : 'Offline'}</span></div><button className="btn btn--small" onClick={() => openChat(item.person)}><Icon name="chat" size={16} /> Mensagem</button><button className="icon-btn" title="Remover amizade" onClick={() => void social.removeFriend(item.id)}><Icon name="close" /></button></article>)}{social.friends.length === 0 && <div className="empty-state"><p>Nenhum amigo adicionado ainda.</p></div>}</section>
       </div>}
       {tab === 'messages' && <div className={`messages-page${chatWith ? ' has-chat' : ''}`}>
         <aside className="conv-list">
@@ -159,7 +165,8 @@ export function Dashboard({ initialCode, onJoin }: Props) {
           </ErrorBoundary>
         </section>
       </div>}
-      {tab === 'profile' && <ProfileEditor />}
+      {tab === 'workouts' && <Workouts friends={social.friends.map((item) => item.person)} />}
+      {tab === 'profile' && <ProfileEditor badge={badges.get(profile.id)} />}
     </main>{newestFriend && <div className="friend-toast" role="status" key={newestFriend.id}><span className="friend-toast__icon"><Icon name="check" size={16} /></span>Agora você e <strong>{newestFriend.person.display_name}</strong> são amigos.</div>}
   </div>;
 }

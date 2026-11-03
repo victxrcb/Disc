@@ -4,6 +4,7 @@ import { Controls } from '../components/Controls';
 import { Icon } from '../components/Icon';
 import { MusicPanel } from '../components/MusicPanel';
 import { ParticipantTile } from '../components/ParticipantTile';
+import { useProfileBadges } from '../hooks/useWorkoutGroups';
 import { ScreenView } from '../components/ScreenView';
 import { SoundToast } from '../components/SoundToast';
 import { PresenceAvatar } from '../components/Avatar';
@@ -21,6 +22,7 @@ interface Props {
   code: string;
   name: string;
   avatarUrl: string | null;
+  userId?: string;
   onLeave(): void;
 }
 
@@ -41,8 +43,9 @@ function useCopy(): [boolean, (text: string) => void] {
   return [copied, copy];
 }
 
-export function Room({ code, name, avatarUrl, onLeave }: Props) {
-  const room = useRoom(code, name, avatarUrl);
+export function Room({ code, name, avatarUrl, userId, onLeave }: Props) {
+  const room = useRoom(code, name, avatarUrl, userId);
+  const badges = useProfileBadges(room.participants.flatMap((p) => p.userId ? [p.userId] : []), code);
   const social = useSocial();
   const online = useOnlineUsers();
   const onlineFriends = social.friends.filter((friend) => online.has(friend.person.id));
@@ -153,7 +156,7 @@ export function Room({ code, name, avatarUrl, onLeave }: Props) {
             <>
               <div className="stage">
                 {focusedParticipant ? (
-                  <ParticipantTile participant={focusedParticipant} featured />
+                  <ParticipantTile participant={focusedParticipant} featured badge={focusedParticipant.userId ? badges.get(focusedParticipant.userId) : null} />
                 ) : focusedScreen ? (
                   <ScreenView participant={focusedScreen} focused />
                 ) : null}
@@ -175,6 +178,7 @@ export function Room({ code, name, avatarUrl, onLeave }: Props) {
                     <div key={p.id} className={`tile-wrap${leaving ? ' tile-wrap--leaving' : ''}`} aria-hidden={leaving || undefined}>
                       <ParticipantTile
                         participant={p}
+                        badge={p.userId ? badges.get(p.userId) : null}
                         compact
                         onSelect={p.cameraStream ? () => setStageFocus({ kind: 'participant', id: p.id }) : undefined}
                       />
@@ -186,7 +190,7 @@ export function Room({ code, name, avatarUrl, onLeave }: Props) {
             <div className="grid" data-count={room.participants.length} aria-busy={room.status === 'joining'}>
               {tiles.map(({ item: p, leaving }) => (
                 <div key={p.id} className={`tile-wrap${leaving ? ' tile-wrap--leaving' : ''}`} aria-hidden={leaving || undefined}>
-                  <ParticipantTile participant={p} />
+                  <ParticipantTile participant={p} badge={p.userId ? badges.get(p.userId) : null} />
                 </div>
               ))}
               {room.status === 'joining' &&

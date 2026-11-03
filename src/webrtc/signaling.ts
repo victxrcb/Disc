@@ -8,6 +8,8 @@ export interface PresenceMeta {
   id: string;
   name: string;
   avatarUrl?: string | null;
+  /** Conta do usuário; usado só para buscar o selo de ranking (informativo, não é prova de identidade). */
+  userId?: string;
   joinedAt: number;
   muted: boolean;
   /** id do MediaStream da tela compartilhada (permite ao outro lado distinguir do microfone). */
@@ -82,7 +84,7 @@ export class Signaling {
         const participants = Object.values(state)
           .map((metas) => metas[metas.length - 1])
           .filter((m): m is PresenceMeta & { presence_ref: string } => Boolean(m?.id))
-          .map(({ id, name, avatarUrl, joinedAt, muted, screenStreamId, cameraStreamId }) => ({ id, name, avatarUrl, joinedAt, muted, screenStreamId, cameraStreamId }));
+          .map(({ id, name, avatarUrl, userId, joinedAt, muted, screenStreamId, cameraStreamId }) => ({ id, name, avatarUrl, userId, joinedAt, muted, screenStreamId, cameraStreamId }));
         this.handlers.onPresence(participants);
       })
       .on('broadcast', { event: 'signal' }, ({ payload }) => {
